@@ -90,10 +90,74 @@ let subst (var_name : varid) (repl : expr) (exp : expr) : expr =
    
 (* exp_to_concrete_string exp -- Returns a string representation of
    the concrete syntax of the expression `exp` *)
-let exp_to_concrete_string (exp : expr) : string =
-  failwith "exp_to_concrete_string not implemented" ;;
+let rec exp_to_concrete_string (exp : expr) : string =
+  match exp with
+  | Var v -> v
+  | Num n -> string_of_int n
+  | Bool b -> string_of_bool b
+  | Unop (u, e) ->
+    (match u with | Negate -> "-" ^ exp_to_concrete_string e)
+  | Binop (b, e1, e2) ->
+    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    in let binop_str =
+      match b with
+      | Plus -> "+"
+      | Minus -> "-"
+      | Times -> "*"
+      | Equals -> "="
+      | LessThan -> "<"
+    in e1_str ^ binop_str ^ e2_str
+  | Conditional (e1, e2, e3) ->
+    let e1_str, e2_str, e3_str = exp_to_concrete_string e1,
+                                 exp_to_concrete_string e2,
+                                 exp_to_concrete_string e3
+    in "if " ^ e1_str ^ " then " ^ e2_str ^ " else " ^ e3_str
+  | Fun (v, e) -> "fun " ^ v ^ " -> " ^ exp_to_concrete_string e
+  | Let (v, e1, e2) ->
+    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    in "let " ^ v ^ " = " ^ e1_str ^ " in " ^ e2_str
+  | Letrec (v, e1, e2) ->
+    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    in "let rec " ^ v ^ " = " ^ e1_str ^ " in " ^ e2_str
+  | Raise -> "parse error"
+  | Unassigned -> "unassigned"
+  | App (e1, e2) ->
+    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    in "(" ^ e1_str ^ ") (" ^ e2_str ^ ")"
      
 (* exp_to_abstract_string exp -- Return a string representation of the
    abstract syntax of the expression `exp` *)
 let exp_to_abstract_string (exp : expr) : string =
-  failwith "exp_to_abstract_string not implemented" ;;
+  match exp with
+  | Var v -> "Var(" ^ v ^ ")"
+  | Num n -> "Num(" ^ string_of_int n ^ ")"
+  | Bool b -> "Bool(" ^ string_of_bool b ^ ")"
+  | Unop (u, e) ->
+    (match u with | Negate -> "Unop(Negate, " ^ exp_to_concrete_string e ^ ")")
+  | Binop (b, e1, e2) ->
+    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    in let binop_str =
+      match b with
+      | Plus -> "Plus"
+      | Minus -> "Minus"
+      | Times -> "Times"
+      | Equals -> "Equals"
+      | LessThan -> "LessThan"
+    in "Binop(" ^ binop_str ^ ", " ^ e1_str ^ ", " ^ "e2_str" ^ ")"
+  | Conditional (e1, e2, e3) ->
+    let e1_str, e2_str, e3_str = exp_to_concrete_string e1,
+                                 exp_to_concrete_string e2,
+                                 exp_to_concrete_string e3
+    in "Conditional(" ^ e1_str ^ ", " ^ e2_str ^ ", " ^ e3_str ^ ")"
+  | Fun (v, e) -> "Fun(" ^ v ^ ", " ^ exp_to_concrete_string e ^ ")"
+  | Let (v, e1, e2) ->
+    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    in "Let(" ^ v ^ ", " ^ e1_str ^ ", " ^ e2_str ^ ")"
+  | Letrec (v, e1, e2) ->
+    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    in "Letrec(" ^ v ^ ", " ^ e1_str ^ ", " ^ e2_str ^ ")"
+  | Raise -> "parse error"
+  | Unassigned -> "unassigned"
+  | App (e1, e2) ->
+    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    in "App(" ^ e1_str ^ ", " ^ e2_str ^ ")"
