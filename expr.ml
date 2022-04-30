@@ -60,8 +60,20 @@ let vars_of_list : string list -> varidset =
   
 (* free_vars exp -- Returns the set of `varid`s corresponding to free
    variables in `exp` *)
-let free_vars (exp : expr) : varidset =
-  failwith "free_vars not implemented" ;;
+let rec free_vars (exp : expr) : varidset =
+  match exp with
+  | Num _ | Bool _ | Raise | Unassigned -> SS.empty
+  | Var v -> SS.singleton v
+  | Unop (_, e) -> free_vars e
+  | Binop (_, e1, e2)
+  | App (e1, e2) -> SS.union (free_vars e1) (free_vars e2)
+  | Conditional (e1, e2, e3) ->
+    SS.union (free_vars e1) (free_vars e2) |> SS.union (free_vars e3)
+  | Fun (v, e) -> free_vars e |> SS.remove v
+  | Let (v, e1, e2) ->
+    free_vars e2 |> SS.remove v |> SS.union (free_vars e1)
+  | Letrec (v, e1, e2) ->
+    free_vars e2 |> SS.remove v |> SS.union (free_vars e1 |> SS.remove v)
   
 (* new_varname () -- Returns a freshly minted `varid` constructed with
    a running counter a la `gensym`. Assumes no variable names use the
@@ -127,15 +139,15 @@ let rec exp_to_concrete_string (exp : expr) : string =
      
 (* exp_to_abstract_string exp -- Return a string representation of the
    abstract syntax of the expression `exp` *)
-let exp_to_abstract_string (exp : expr) : string =
+let rec exp_to_abstract_string (exp : expr) : string =
   match exp with
   | Var v -> "Var(" ^ v ^ ")"
   | Num n -> "Num(" ^ string_of_int n ^ ")"
   | Bool b -> "Bool(" ^ string_of_bool b ^ ")"
   | Unop (u, e) ->
-    (match u with | Negate -> "Unop(Negate, " ^ exp_to_concrete_string e ^ ")")
+    (match u with | Negate -> "Unop(Negate, " ^ exp_to_abstract_string e ^ ")")
   | Binop (b, e1, e2) ->
-    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    let e1_str, e2_str = exp_to_abstract_string e1, exp_to_abstract_string e2
     in let binop_str =
       match b with
       | Plus -> "Plus"
@@ -143,21 +155,21 @@ let exp_to_abstract_string (exp : expr) : string =
       | Times -> "Times"
       | Equals -> "Equals"
       | LessThan -> "LessThan"
-    in "Binop(" ^ binop_str ^ ", " ^ e1_str ^ ", " ^ "e2_str" ^ ")"
+    in "Binop(" ^ binop_str ^ ", " ^ e1_str ^ ", " ^ e2_str ^ ")"
   | Conditional (e1, e2, e3) ->
-    let e1_str, e2_str, e3_str = exp_to_concrete_string e1,
-                                 exp_to_concrete_string e2,
-                                 exp_to_concrete_string e3
+    let e1_str, e2_str, e3_str = exp_to_abstract_string e1,
+                                 exp_to_abstract_string e2,
+                                 exp_to_abstract_string e3
     in "Conditional(" ^ e1_str ^ ", " ^ e2_str ^ ", " ^ e3_str ^ ")"
-  | Fun (v, e) -> "Fun(" ^ v ^ ", " ^ exp_to_concrete_string e ^ ")"
+  | Fun (v, e) -> "Fun(" ^ v ^ ", " ^ exp_to_abstract_string e ^ ")"
   | Let (v, e1, e2) ->
-    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    let e1_str, e2_str = exp_to_abstract_string e1, exp_to_abstract_string e2
     in "Let(" ^ v ^ ", " ^ e1_str ^ ", " ^ e2_str ^ ")"
   | Letrec (v, e1, e2) ->
-    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    let e1_str, e2_str = exp_to_abstract_string e1, exp_to_abstract_string e2
     in "Letrec(" ^ v ^ ", " ^ e1_str ^ ", " ^ e2_str ^ ")"
   | Raise -> "parse error"
   | Unassigned -> "unassigned"
   | App (e1, e2) ->
-    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    let e1_str, e2_str = exp_to_abstract_string e1, exp_to_abstract_string e2
     in "App(" ^ e1_str ^ ", " ^ e2_str ^ ")"
