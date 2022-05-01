@@ -145,11 +145,11 @@ let rec exp_to_concrete_string (exp : expr) : string =
     let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
     in let binop_str =
       match b with
-      | Plus -> "+"
-      | Minus -> "-"
-      | Times -> "*"
-      | Equals -> "="
-      | LessThan -> "<"
+      | Plus -> " + "
+      | Minus -> " - "
+      | Times -> " * "
+      | Equals -> " = "
+      | LessThan -> " < "
     in e1_str ^ binop_str ^ e2_str
   | Conditional (e1, e2, e3) ->
     let e1_str, e2_str, e3_str = exp_to_concrete_string e1,
