@@ -68,19 +68,38 @@ module Env : ENV =
     let empty () : env = []
 
     let close (exp : expr) (env : env) : value =
-      failwith "close not implemented"
+      Closure (exp, env)
 
     let lookup (env : env) (varname : varid) : value =
-      failwith "lookup not implemented"
+      match List.find_opt (fun (var, _val_ref) -> var = varname) env with
+      | Some (_var, val_ref) -> !val_ref
+      | None -> raise (EvalError "lookup: varid not found")
 
     let extend (env : env) (varname : varid) (loc : value ref) : env =
-      failwith "extend not implemented"
+      List.fold_left
+        (fun acc (var, val_ref) ->
+           if var = varname then (varname, loc) :: acc
+           else (var, val_ref) :: acc)
+        [] env
 
-    let value_to_string ?(printenvp : bool = true) (v : value) : string =
-      failwith "value_to_string not implemented"
+    let rec value_to_string ?(printenvp : bool = true) (v : value) : string =
+      match v with
+      | Val exp -> exp_to_concrete_string exp
+      | Closure (exp, env) ->
+        let exp_str = exp_to_concrete_string exp in
+        if printenvp then "[" ^ env_to_string env ^ " ⊢ " ^ exp_str ^ "]"
+        else exp_str
+    and env_to_string (env : env) : string =
+      let count = ref (List.length env) in
+      let str_contents =
+        List.fold_left
+          (fun acc (var, val_ref) ->
+             let substr = acc ^ var ^  " -> " ^ value_to_string !val_ref in
+             if !count <= 1 then substr
+             else (count := !count - 1; substr ^ "; "))
+          "" env
+      in "{" ^ str_contents ^ "}"
 
-    let env_to_string (env : env) : string =
-      failwith "env_to_string not implemented"
   end
 ;;
 
@@ -117,7 +136,8 @@ let eval_t (exp : expr) (_env : Env.env) : Env.value =
    
 let rec eval_s (exp : expr) (env : Env.env) : Env.value =
   match exp with
-  | Var _ | Num _ | Bool _ | Fun _ -> Env.Val exp
+  | Var _ -> raise (EvalError "invalid var")
+  | Num _ | Bool _ | Fun _ -> Env.Val exp
   | Unop (_u, e) ->
     (match eval_s e env with
      | Env.Val Num n -> Env.Val (Num ~-n)
