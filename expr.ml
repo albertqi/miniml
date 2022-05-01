@@ -73,14 +73,20 @@ let rec free_vars (exp : expr) : varidset =
   | Let (v, e1, e2) ->
     free_vars e2 |> SS.remove v |> SS.union (free_vars e1)
   | Letrec (v, e1, e2) ->
-    free_vars e2 |> SS.remove v |> SS.union (free_vars e1 |> SS.remove v)
-  
+    free_vars e2 |> SS.remove v |> SS.union (free_vars e1 |> SS.remove v) ;;
+
+let gensym : string -> string =
+  let count = ref 0 in
+  fun s -> let res = s ^ string_of_int !count
+           in count := !count + 1;
+           res ;;
+
 (* new_varname () -- Returns a freshly minted `varid` constructed with
    a running counter a la `gensym`. Assumes no variable names use the
    prefix "var". (Otherwise, they might accidentally be the same as a
    generated variable name.) *)
 let new_varname () : varid =
-  failwith "new_varname not implemented" ;;
+  gensym "var" ;;
 
 (*......................................................................
   Substitution 
@@ -93,8 +99,34 @@ let new_varname () : varid =
 (* subst var_name repl exp -- Return the expression `exp` with `repl`
    substituted for free occurrences of `var_name`, avoiding variable
    capture *)
-let subst (var_name : varid) (repl : expr) (exp : expr) : expr =
-  failwith "subst not implemented" ;;
+let rec subst (var_name : varid) (repl : expr) (exp : expr) : expr =
+  if free_vars exp |> SS.mem var_name |> not then exp
+  else
+  match exp with
+  | Num _ | Bool _ | Raise | Unassigned -> exp
+  | Var v -> if v = var_name then repl else Var v
+  | Unop (_, e) -> subst var_name repl e
+  | Binop (b, e1, e2) -> Binop (b, subst var_name repl e1, subst var_name repl e2)
+  | Conditional (e1, e2, e3) ->
+    let e1_subst, e2_subst, e3_subst = subst var_name repl e1,
+                                       subst var_name repl e2,
+                                       subst var_name repl e3
+    in Conditional (e1_subst, e2_subst, e3_subst)
+  | Fun (v, e) ->
+    if v = var_name then exp
+    else if free_vars repl |> SS.mem v |> not then Fun (v, subst var_name repl e)
+    else let new_v = new_varname ()
+         in Fun (new_v, subst v (Var new_v) e |> subst var_name repl)
+  | Let (v, e1, e2)
+  | Letrec (v, e1, e2) ->
+    if v = var_name then Let (v, subst var_name repl e1, e2)
+    else if free_vars repl |> SS.mem v |> not
+         then Let (v, subst var_name repl e1, subst var_name repl e2)
+         else let new_v = new_varname ()
+              in Let (new_v,
+                      subst var_name repl e1,
+                      subst v (Var new_v) e2 |> subst var_name repl)
+  | App (e1, e2) -> App (subst var_name repl e1, subst var_name repl e2) ;;
      
 (*......................................................................
   String representations of expressions
