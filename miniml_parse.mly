@@ -14,17 +14,20 @@
 %token NOT
 %token NATURALLOG
 %token SINE COSINE TANGENT
+%token PRINTSTRING PRINTENDLINE
 %token PLUS PLUSFLOAT MINUS MINUSFLOAT
 %token TIMES TIMESFLOAT DIVIDES DIVIDESFLOAT
 %token POWER
 %token EQUALS NOTEQUALS
 %token LESSTHAN GREATERTHAN LESSTHANEQUALS GREATERTHANEQUALS
-%token IF THEN ELSE 
+%token CONCATENATE
+%token IF THEN ELSE
 %token FUNCTION
 %token RAISE
 %token <string> ID
 %token <int> INT 
 %token <float> FLOAT
+%token <string> STRING
 %token UNIT
 %token TRUE FALSE
 
@@ -34,10 +37,12 @@
 %left PLUS PLUSFLOAT MINUS MINUSFLOAT
 %left TIMES TIMESFLOAT DIVIDES DIVIDESFLOAT
 %right POWER
+%right CONCATENATE
 %nonassoc NEG NEGFLOAT
 %nonassoc NOT
 %nonassoc NATURALLOG
 %nonassoc SINE COSINE TANGENT
+%nonassoc PRINTSTRING PRINTENDLINE
 
 %start input
 %type <Expr.expr> input
@@ -53,6 +58,7 @@ expnoapp: INT                   { Num $1 }
         | FLOAT                 { Float $1 }
         | TRUE                  { Bool true }
         | FALSE                 { Bool false }
+        | STRING                { String $1 }
         | UNIT                  { Unit }
         | ID                    { Var $1 }
         | NEG exp               { Unop(Negate, $2) }
@@ -62,6 +68,8 @@ expnoapp: INT                   { Num $1 }
         | SINE exp              { Unop(Sine, $2) }
         | COSINE exp            { Unop(Cosine, $2) }
         | TANGENT exp           { Unop(Tangent, $2) }
+        | PRINTSTRING exp       { Unop(PrintString, $2) }
+        | PRINTENDLINE exp      { Unop(PrintEndline, $2) }
         | exp PLUS exp          { Binop(Plus, $1, $3) }
         | exp PLUSFLOAT exp     { Binop(PlusFloat, $1, $3) }
         | exp MINUS exp         { Binop(Minus, $1, $3) }
@@ -77,6 +85,7 @@ expnoapp: INT                   { Num $1 }
         | exp GREATERTHAN exp           { Binop(GreaterThan, $1, $3) }
         | exp LESSTHANEQUALS exp        { Binop(LessThanEquals, $1, $3) }
         | exp GREATERTHANEQUALS exp     { Binop(GreaterThanEquals, $1, $3) }
+        | exp CONCATENATE exp           { Binop(Concatenate, $1, $3) }
         | IF exp THEN exp ELSE exp      { Conditional($2, $4, $6) }
         | LET ID EQUALS exp IN exp      { Let($2, $4, $6) }
         | LET REC ID EQUALS exp IN exp  { Letrec($3, $5, $7) }

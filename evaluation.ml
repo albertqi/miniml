@@ -155,7 +155,7 @@ let eval_t (exp : expr) (_env : Env.env) : Env.value =
 let rec eval_s (exp : expr) (env : Env.env) : Env.value =
   match exp with
   | Var _ -> raise (EvalError "invalid var")
-  | Num _ | Float _ | Bool _ | Unit | Fun _ | FunUnit _ -> Env.Val exp
+  | Num _ | Float _ | Bool _ | String _ | Unit | Fun _ | FunUnit _ -> Env.Val exp
   | Unop (u, e) ->
     let res_exp =
       match u, eval_s e env |> extract with
@@ -166,6 +166,8 @@ let rec eval_s (exp : expr) (env : Env.env) : Env.value =
       | Sine, Float f -> Float (sin f)
       | Cosine, Float f -> Float (cos f)
       | Tangent, Float f -> Float (tan f)
+      | PrintString, String s -> print_string s; Unit
+      | PrintEndline, String s -> print_endline s; Unit
       | _ -> raise (EvalError "invalid unop")
     in Env.Val res_exp
   | Binop (b, e1, e2) ->
@@ -183,17 +185,24 @@ let rec eval_s (exp : expr) (env : Env.env) : Env.value =
       | Equals, Num n1, Num n2 -> Bool (n1 = n2)
       | Equals, Float n1, Float n2 -> Bool (n1 = n2)
       | Equals, Bool n1, Bool n2 -> Bool (n1 = n2)
+      | Equals, String n1, String n2 -> Bool (n1 = n2)
       | NotEquals, Num n1, Num n2 -> Bool (n1 <> n2)
       | NotEquals, Float n1, Float n2 -> Bool (n1 <> n2)
       | NotEquals, Bool n1, Bool n2 -> Bool (n1 <> n2)
+      | NotEquals, String n1, String n2 -> Bool (n1 <> n2)
       | LessThan, Num n1, Num n2 -> Bool (n1 < n2)
       | LessThan, Float n1, Float n2 -> Bool (n1 < n2)
+      | LessThan, String n1, String n2 -> Bool (n1 < n2)
       | GreaterThan, Num n1, Num n2 -> Bool (n1 > n2)
       | GreaterThan, Float n1, Float n2 -> Bool (n1 > n2)
+      | GreaterThan, String n1, String n2 -> Bool (n1 > n2)
       | LessThanEquals, Num n1, Num n2 -> Bool (n1 <= n2)
       | LessThanEquals, Float n1, Float n2 -> Bool (n1 <= n2)
+      | LessThanEquals, String n1, String n2 -> Bool (n1 <= n2)
       | GreaterThanEquals, Num n1, Num n2 -> Bool (n1 >= n2)
       | GreaterThanEquals, Float n1, Float n2 -> Bool (n1 >= n2)
+      | GreaterThanEquals, String n1, String n2 -> Bool (n1 >= n2)
+      | Concatenate, String s1, String s2 -> String (s1 ^ s2)
       | _ -> raise (EvalError "invalid binop")
     in Env.Val res_exp
   | Conditional (e1, e2, e3) ->
@@ -227,7 +236,7 @@ let rec eval_s (exp : expr) (env : Env.env) : Env.value =
 let rec eval_d (exp : expr) (env : Env.env) : Env.value =
   match exp with
   | Var v -> Env.lookup env v
-  | Num _ | Float _ | Bool _ | Unit | Fun _ | FunUnit _ -> Env.Val exp
+  | Num _ | Float _ | Bool _ | String _ | Unit | Fun _ | FunUnit _ -> Env.Val exp
   | Unop (u, e) ->
     let res_exp =
       match u, eval_d e env |> extract with
@@ -238,6 +247,8 @@ let rec eval_d (exp : expr) (env : Env.env) : Env.value =
       | Sine, Float f -> Float (sin f)
       | Cosine, Float f -> Float (cos f)
       | Tangent, Float f -> Float (tan f)
+      | PrintString, String s -> print_string s; Unit
+      | PrintEndline, String s -> print_endline s; Unit
       | _ -> raise (EvalError "invalid unop")
     in Env.Val res_exp
   | Binop (b, e1, e2) ->
@@ -255,17 +266,24 @@ let rec eval_d (exp : expr) (env : Env.env) : Env.value =
       | Equals, Num n1, Num n2 -> Bool (n1 = n2)
       | Equals, Float n1, Float n2 -> Bool (n1 = n2)
       | Equals, Bool n1, Bool n2 -> Bool (n1 = n2)
+      | Equals, String n1, String n2 -> Bool (n1 = n2)
       | NotEquals, Num n1, Num n2 -> Bool (n1 <> n2)
       | NotEquals, Float n1, Float n2 -> Bool (n1 <> n2)
       | NotEquals, Bool n1, Bool n2 -> Bool (n1 <> n2)
+      | NotEquals, String n1, String n2 -> Bool (n1 <> n2)
       | LessThan, Num n1, Num n2 -> Bool (n1 < n2)
       | LessThan, Float n1, Float n2 -> Bool (n1 < n2)
+      | LessThan, String n1, String n2 -> Bool (n1 < n2)
       | GreaterThan, Num n1, Num n2 -> Bool (n1 > n2)
       | GreaterThan, Float n1, Float n2 -> Bool (n1 > n2)
+      | GreaterThan, String n1, String n2 -> Bool (n1 > n2)
       | LessThanEquals, Num n1, Num n2 -> Bool (n1 <= n2)
       | LessThanEquals, Float n1, Float n2 -> Bool (n1 <= n2)
+      | LessThanEquals, String n1, String n2 -> Bool (n1 <= n2)
       | GreaterThanEquals, Num n1, Num n2 -> Bool (n1 >= n2)
       | GreaterThanEquals, Float n1, Float n2 -> Bool (n1 >= n2)
+      | GreaterThanEquals, String n1, String n2 -> Bool (n1 >= n2)
+      | Concatenate, String s1, String s2 -> String (s1 ^ s2)
       | _ -> raise (EvalError "invalid binop")
     in Env.Val res_exp
   | Conditional (e1, e2, e3) ->

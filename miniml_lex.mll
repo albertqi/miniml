@@ -30,7 +30,9 @@
                        ("log", NATURALLOG);
                        ("sin", SINE);
                        ("cos", COSINE);
-                       ("tan", TANGENT)
+                       ("tan", TANGENT);
+                       ("print_string", PRINTSTRING);
+                       ("print_endline", PRINTENDLINE)
                      ]
                      
   let sym_table = 
@@ -41,6 +43,7 @@
                        (">", GREATERTHAN);
                        ("<=", LESSTHANEQUALS);
                        (">=", GREATERTHANEQUALS);
+                       ("^", CONCATENATE);
                        (".", DOT);
                        ("->", DOT);
                        (";;", EOF);
@@ -62,10 +65,11 @@
 }
 
 let digit = ['0'-'9']
-let id = ['a'-'z'] ['a'-'z' '0'-'9']*
+let id = ['a'-'z'] ['a'-'z' '0'-'9' '_']*
 let sym = ['(' ')'] | "()" | (['$' '&' '*' '+' '-' '/' '=' '<' '>' '^'
                             '.' '~' ';' '!' '?' '%' ':' '#']+)
 let float = digit+ '.' digit*
+let string = '\"' [^ '\"']* '\"'
 
 rule token = parse
   | digit+ as inum
@@ -75,6 +79,11 @@ rule token = parse
   | float as ifloat
         { let f = float_of_string ifloat in
           FLOAT f
+        }
+  | string as istring
+        { let len = String.length istring in
+          let res = String.sub istring 1 (len - 2) in
+          STRING res
         }
   | id as word
         { try

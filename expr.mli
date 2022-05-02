@@ -16,6 +16,8 @@ type unop =
   | Sine
   | Cosine
   | Tangent
+  | PrintString
+  | PrintEndline
 ;;
 
 (* Binary operators *)
@@ -35,6 +37,7 @@ type binop =
   | GreaterThan
   | LessThanEquals
   | GreaterThanEquals
+  | Concatenate
 ;;
 
 (* Variable identifers *)
@@ -46,6 +49,7 @@ type expr =
   | Num of int                           (* integers *)
   | Float of float                       (* floats *)
   | Bool of bool                         (* booleans *)
+  | String of string                     (* strings *)
   | Unit                                 (* units *)
   | Unop of unop * expr                  (* unary operators *)
   | Binop of binop * expr * expr         (* binary operators *)
