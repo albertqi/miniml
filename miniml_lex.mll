@@ -25,20 +25,36 @@
                        ("true", TRUE);
                        ("false", FALSE);
                        ("fun", FUNCTION);
-                       ("function", FUNCTION)
+                       ("function", FUNCTION);
+                       ("not", NOT);
+                       ("log", NATURALLOG);
+                       ("sin", SINE);
+                       ("cos", COSINE);
+                       ("tan", TANGENT)
                      ]
                      
   let sym_table = 
     create_hashtable 8 [
                        ("=", EQUALS);
+                       ("<>", NOTEQUALS);
                        ("<", LESSTHAN);
+                       (">", GREATERTHAN);
+                       ("<=", LESSTHANEQUALS);
+                       (">=", GREATERTHANEQUALS);
                        (".", DOT);
                        ("->", DOT);
                        (";;", EOF);
                        ("~-", NEG);
+                       ("~-.", NEGFLOAT);
                        ("+", PLUS);
+                       ("+.", PLUSFLOAT);
                        ("-", MINUS);
+                       ("-.", MINUSFLOAT);
                        ("*", TIMES);
+                       ("*.", TIMESFLOAT);
+                       ("/", DIVIDES);
+                       ("/.", DIVIDESFLOAT);
+                       ("**", POWER);
                        ("(", OPEN);
                        (")", CLOSE)
                      ]
@@ -48,11 +64,16 @@ let digit = ['0'-'9']
 let id = ['a'-'z'] ['a'-'z' '0'-'9']*
 let sym = ['(' ')'] | (['$' '&' '*' '+' '-' '/' '=' '<' '>' '^'
                             '.' '~' ';' '!' '?' '%' ':' '#']+)
+let float = digit+ '.' digit*
 
 rule token = parse
   | digit+ as inum
         { let num = int_of_string inum in
           INT num
+        }
+  | float as ifloat
+        { let f = float_of_string ifloat in
+          FLOAT f
         }
   | id as word
         { try

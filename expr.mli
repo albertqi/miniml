@@ -10,15 +10,31 @@
 (* Unary operators *)
 type unop =
   | Negate
+  | NegateFloat
+  | Not
+  | NaturalLog
+  | Sine
+  | Cosine
+  | Tangent
 ;;
 
 (* Binary operators *)
 type binop =
   | Plus
+  | PlusFloat
   | Minus
+  | MinusFloat
   | Times
+  | TimesFloat
+  | Divides
+  | DividesFloat
+  | Power
   | Equals
+  | NotEquals
   | LessThan
+  | GreaterThan
+  | LessThanEquals
+  | GreaterThanEquals
 ;;
 
 (* Variable identifers *)
@@ -28,6 +44,7 @@ type varid = string ;;
 type expr =
   | Var of varid                         (* variables *)
   | Num of int                           (* integers *)
+  | Float of float                       (* floats *)
   | Bool of bool                         (* booleans *)
   | Unop of unop * expr                  (* unary operators *)
   | Binop of binop * expr * expr         (* binary operators *)

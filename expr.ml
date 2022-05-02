@@ -9,14 +9,30 @@
 
 type unop =
   | Negate
+  | NegateFloat
+  | Not
+  | NaturalLog
+  | Sine
+  | Cosine
+  | Tangent
 ;;
     
 type binop =
   | Plus
+  | PlusFloat
   | Minus
+  | MinusFloat
   | Times
+  | TimesFloat
+  | Divides
+  | DividesFloat
+  | Power
   | Equals
+  | NotEquals
   | LessThan
+  | GreaterThan
+  | LessThanEquals
+  | GreaterThanEquals
 ;;
 
 type varid = string ;;
@@ -24,6 +40,7 @@ type varid = string ;;
 type expr =
   | Var of varid                         (* variables *)
   | Num of int                           (* integers *)
+  | Float of float                       (* floats *)
   | Bool of bool                         (* booleans *)
   | Unop of unop * expr                  (* unary operators *)
   | Binop of binop * expr * expr         (* binary operators *)
@@ -62,7 +79,7 @@ let vars_of_list : string list -> varidset =
    variables in `exp` *)
 let rec free_vars (exp : expr) : varidset =
   match exp with
-  | Num _ | Bool _ | Raise | Unassigned -> SS.empty
+  | Num _ | Float _ | Bool _ | Raise | Unassigned -> SS.empty
   | Var v -> SS.singleton v
   | Unop (_, e) -> free_vars e
   | Binop (_, e1, e2)
@@ -103,9 +120,9 @@ let rec subst (var_name : varid) (repl : expr) (exp : expr) : expr =
   if free_vars exp |> SS.mem var_name |> not then exp
   else
   match exp with
-  | Num _ | Bool _ | Raise | Unassigned -> exp
+  | Num _ | Float _ | Bool _ | Raise | Unassigned -> exp
   | Var v -> if v = var_name then repl else Var v
-  | Unop (_, e) -> subst var_name repl e
+  | Unop (u, e) -> Unop (u, subst var_name repl e)
   | Binop (b, e1, e2) -> Binop (b, subst var_name repl e1, subst var_name repl e2)
   | Conditional (e1, e2, e3) ->
     let e1_subst, e2_subst, e3_subst = subst var_name repl e1,
@@ -138,18 +155,39 @@ let rec exp_to_concrete_string (exp : expr) : string =
   match exp with
   | Var v -> v
   | Num n -> string_of_int n
+  | Float n -> string_of_float n
   | Bool b -> string_of_bool b
   | Unop (u, e) ->
-    (match u with | Negate -> "-" ^ exp_to_concrete_string e)
+    let e_str = exp_to_concrete_string e
+    in let unop_str =
+      match u with
+      | Negate -> "~-"
+      | NegateFloat -> "~-."
+      | Not -> "not "
+      | NaturalLog -> "log "
+      | Sine -> "sin "
+      | Cosine -> "cos "
+      | Tangent -> "tan "
+    in unop_str ^ e_str
   | Binop (b, e1, e2) ->
     let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
     in let binop_str =
       match b with
       | Plus -> " + "
+      | PlusFloat -> " +. "
       | Minus -> " - "
+      | MinusFloat -> " -. "
       | Times -> " * "
+      | TimesFloat -> " *. "
+      | Divides -> " / "
+      | DividesFloat -> " /. "
+      | Power -> " ** "
       | Equals -> " = "
+      | NotEquals -> " <> "
       | LessThan -> " < "
+      | GreaterThan -> " > "
+      | LessThanEquals -> " <= "
+      | GreaterThanEquals -> " >= "
     in e1_str ^ binop_str ^ e2_str
   | Conditional (e1, e2, e3) ->
     let e1_str, e2_str, e3_str = exp_to_concrete_string e1,
@@ -175,18 +213,39 @@ let rec exp_to_abstract_string (exp : expr) : string =
   match exp with
   | Var v -> "Var(" ^ v ^ ")"
   | Num n -> "Num(" ^ string_of_int n ^ ")"
+  | Float n -> "Float(" ^ string_of_float n ^ ")"
   | Bool b -> "Bool(" ^ string_of_bool b ^ ")"
   | Unop (u, e) ->
-    (match u with | Negate -> "Unop(Negate, " ^ exp_to_abstract_string e ^ ")")
+    let e_str = exp_to_abstract_string e
+    in let unop_str =
+      match u with
+      | Negate -> "Negate"
+      | NegateFloat -> "NegateFloat"
+      | Not -> "Not"
+      | NaturalLog -> "NaturalLog"
+      | Sine -> "Sine"
+      | Cosine -> "Cosine"
+      | Tangent -> "Tangent"
+    in "Unop(" ^ unop_str ^ ", " ^ e_str ^ ")"
   | Binop (b, e1, e2) ->
     let e1_str, e2_str = exp_to_abstract_string e1, exp_to_abstract_string e2
     in let binop_str =
       match b with
       | Plus -> "Plus"
+      | PlusFloat -> "PlusFloat"
       | Minus -> "Minus"
+      | MinusFloat -> "MinusFloat"
       | Times -> "Times"
+      | TimesFloat -> "TimesFloat"
+      | Divides -> "Divides"
+      | DividesFloat -> "DividesFloat"
+      | Power -> "Power"
       | Equals -> "Equals"
+      | NotEquals -> "NotEquals"
       | LessThan -> "LessThan"
+      | GreaterThan -> "GreaterThan"
+      | LessThanEquals -> "LessThanEquals"
+      | GreaterThanEquals -> "GreaterThanEquals"
     in "Binop(" ^ binop_str ^ ", " ^ e1_str ^ ", " ^ e2_str ^ ")"
   | Conditional (e1, e2, e3) ->
     let e1_str, e2_str, e3_str = exp_to_abstract_string e1,
