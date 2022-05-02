@@ -76,11 +76,7 @@ module Env : ENV =
       | None -> raise (EvalError "lookup: varid not found")
 
     let extend (env : env) (varname : varid) (loc : value ref) : env =
-      List.fold_left
-        (fun acc (var, val_ref) ->
-           if var = varname then (varname, loc) :: acc
-           else (var, val_ref) :: acc)
-        [] env
+      (varname, loc) :: List.filter (fun (var, _val_ref) -> var <> varname) env
 
     let rec value_to_string ?(printenvp : bool = true) (v : value) : string =
       match v with
@@ -99,6 +95,23 @@ module Env : ENV =
              else (count := !count - 1; substr ^ "; "))
           "" env
       in "{" ^ str_contents ^ "}"
+
+    (* let run_tests () : unit =
+      let test_env : env = [("x", ref (Val (Num 5)))] in
+      Printf.printf ("%s\n") (env_to_string test_env);
+      assert (lookup test_env "x" = Val (Num 5));
+      let test_env2 : env = ("y", ref (Val (Bool false))) :: test_env in
+      assert (lookup test_env2 "y" = Val (Bool false));
+      assert (lookup test_env2 "x" = Val (Num 5));
+      Printf.printf ("%s\n") (env_to_string test_env2);
+      let test_env3 : env = extend test_env2 "z" (ref (Val (Num 7))) in
+      Printf.printf ("%s\n") (env_to_string test_env3);
+      assert (lookup test_env3 "y" = Val (Bool false));
+      assert (lookup test_env3 "x" = Val (Num 5));
+      assert (lookup test_env3 "z" = Val (Num 7));
+      let test_env4 : env = extend test_env3 "z" (ref (Val (Num 8))) in
+      Printf.printf ("%s\n") (env_to_string test_env4);
+      assert (lookup test_env4 "z" = Val (Num 8)) ;; *)
 
   end
 ;;
@@ -185,8 +198,47 @@ let rec eval_s (exp : expr) (env : Env.env) : Env.value =
 (* The DYNAMICALLY-SCOPED ENVIRONMENT MODEL evaluator -- to be
    completed *)
    
-let eval_d (_exp : expr) (_env : Env.env) : Env.value =
-  failwith "eval_d not implemented" ;;
+let rec eval_d (exp : expr) (env : Env.env) : Env.value =
+  match exp with
+  | Var v -> Env.lookup env v
+  | Num _ | Bool _ | Fun _ -> Env.Val exp
+  | Unop (_u, e) ->
+    (match eval_d e env with
+     | Env.Val Num n -> Env.Val (Num ~-n)
+     | _ -> raise (EvalError "invalid unop"))
+  | Binop (b, e1, e2) ->
+    (match eval_d e1 env, eval_d e2 env with
+     | Env.Val Num n1, Env.Val Num n2 ->
+       let res_exp =
+         match b with
+         | Plus -> Num (n1 + n2)
+         | Minus -> Num (n1 - n2)
+         | Times -> Num (n1 * n2)
+         | Equals -> Bool (n1 = n2)
+         | LessThan -> Bool (n1 < n2)
+       in Env.Val res_exp
+     | _ -> raise (EvalError "invalid binop"))
+  | Conditional (e1, e2, e3) ->
+    (match eval_d e1 env with
+     | Env.Val Bool true -> eval_d e2 env
+     | Env.Val Bool false -> eval_d e3 env
+     | _ -> raise (EvalError "invalid conditional"))
+  | Let (v, e1, e2)
+  | Letrec (v, e1, e2) ->
+    let repl_exp =
+      match eval_d e1 env with
+      | Env.Val e -> Env.Val e
+      | _ -> raise (EvalError "invalid let")
+    in let ext_env = Env.extend env v (ref repl_exp)
+    in eval_d e2 ext_env
+  | Raise -> raise EvalException
+  | Unassigned -> raise (EvalError "invalid unassigned")
+  | App (e1, e2) ->
+    match eval_d e1 env, eval_d e2 env with
+    | Env.Val Fun (v, e), Env.Val repl_exp ->
+      let ext_env = ref (Env.Val repl_exp) |> Env.extend env v
+      in eval_d e ext_env
+    | _ -> raise (EvalError "invalid app") ;;
        
 (* The LEXICALLY-SCOPED ENVIRONMENT MODEL evaluator -- optionally
    completed as (part of) your extension *)
@@ -210,4 +262,4 @@ let eval_e _ =
    above, not the `evaluate` function, so it doesn't matter how it's
    set when you submit your solution.) *)
    
-let evaluate = eval_s ;;
+let evaluate = eval_d ;;
