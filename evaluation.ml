@@ -155,7 +155,7 @@ let eval_t (exp : expr) (_env : Env.env) : Env.value =
 let rec eval_s (exp : expr) (env : Env.env) : Env.value =
   match exp with
   | Var _ -> raise (EvalError "invalid var")
-  | Num _ | Float _ | Bool _ | Fun _ -> Env.Val exp
+  | Num _ | Float _ | Bool _ | Unit | Fun _ | FunUnit _ -> Env.Val exp
   | Unop (u, e) ->
     let res_exp =
       match u, eval_s e env |> extract with
@@ -218,6 +218,7 @@ let rec eval_s (exp : expr) (env : Env.env) : Env.value =
     | Fun (v, e), repl_exp ->
       let subst_exp = subst v repl_exp e
       in eval_s subst_exp env
+    | FunUnit (Unit, e), Unit -> eval_s e env
     | _ -> raise (EvalError "invalid app") ;;
      
 (* The DYNAMICALLY-SCOPED ENVIRONMENT MODEL evaluator -- to be
@@ -226,7 +227,7 @@ let rec eval_s (exp : expr) (env : Env.env) : Env.value =
 let rec eval_d (exp : expr) (env : Env.env) : Env.value =
   match exp with
   | Var v -> Env.lookup env v
-  | Num _ | Float _ | Bool _ | Fun _ -> Env.Val exp
+  | Num _ | Float _ | Bool _ | Unit | Fun _ | FunUnit _ -> Env.Val exp
   | Unop (u, e) ->
     let res_exp =
       match u, eval_d e env |> extract with
@@ -284,6 +285,7 @@ let rec eval_d (exp : expr) (env : Env.env) : Env.value =
     | Fun (v, e), repl_exp ->
       let ext_env = ref repl_exp |> Env.extend env v
       in eval_d e ext_env
+    | FunUnit (Unit, e), Env.Val Unit -> eval_d e env
     | _ -> raise (EvalError "invalid app") ;;
        
 (* The LEXICALLY-SCOPED ENVIRONMENT MODEL evaluator -- optionally

@@ -25,6 +25,7 @@
 %token <string> ID
 %token <int> INT 
 %token <float> FLOAT
+%token UNIT
 %token TRUE FALSE
 
 %nonassoc IF
@@ -52,6 +53,7 @@ expnoapp: INT                   { Num $1 }
         | FLOAT                 { Float $1 }
         | TRUE                  { Bool true }
         | FALSE                 { Bool false }
+        | UNIT                  { Unit }
         | ID                    { Var $1 }
         | NEG exp               { Unop(Negate, $2) }
         | NEGFLOAT exp          { Unop(NegateFloat, $2) }
@@ -78,9 +80,10 @@ expnoapp: INT                   { Num $1 }
         | IF exp THEN exp ELSE exp      { Conditional($2, $4, $6) }
         | LET ID EQUALS exp IN exp      { Let($2, $4, $6) }
         | LET REC ID EQUALS exp IN exp  { Letrec($3, $5, $7) }
-        | FUNCTION ID DOT exp   { Fun($2, $4) } 
-        | RAISE                 { Raise }
-        | OPEN exp CLOSE        { $2 }
+        | FUNCTION ID DOT exp           { Fun($2, $4) }
+        | FUNCTION UNIT DOT exp         { FunUnit(Unit, $4) }
+        | RAISE                         { Raise }
+        | OPEN exp CLOSE                { $2 }
 ;
 
 %%
