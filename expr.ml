@@ -47,7 +47,7 @@ type expr =
   | Float of float                       (* floats *)
   | Bool of bool                         (* booleans *)
   | String of string                     (* strings *)
-  | Lazy of expr Lazy.t ref              (* laziness *)
+  | Lazy of expr ref                     (* laziness *)
   | Unit                                 (* units *)
   | Sequence of expr * expr              (* sequences *)
   | Unop of unop * expr                  (* unary operators *)
@@ -171,7 +171,7 @@ let rec exp_to_concrete_string (exp : expr) : string =
   | Float n -> string_of_float n
   | Bool b -> string_of_bool b
   | String s -> "\"" ^ s ^ "\""
-  | Lazy e -> "lazy (" ^ exp_to_concrete_string (Lazy.force !e) ^ ")"
+  | Lazy e -> "lazy (" ^ exp_to_concrete_string !e ^ ")"
   | Unit -> "()"
   | Sequence (e1, e2) ->
     let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
@@ -240,7 +240,7 @@ let rec exp_to_abstract_string (exp : expr) : string =
   | Float n -> "Float(" ^ string_of_float n ^ ")"
   | Bool b -> "Bool(" ^ string_of_bool b ^ ")"
   | String s -> "String(" ^ s ^ ")"
-  | Lazy e -> "Lazy(" ^ exp_to_abstract_string (Lazy.force !e) ^ ")"
+  | Lazy e -> "Lazy(" ^ exp_to_abstract_string !e ^ ")"
   | Unit -> "Unit"
   | Sequence (e1, e2) -> 
     let e1_str, e2_str = exp_to_abstract_string e1, exp_to_abstract_string e2

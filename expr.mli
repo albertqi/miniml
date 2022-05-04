@@ -51,7 +51,7 @@ type expr =
   | Float of float                       (* floats *)
   | Bool of bool                         (* booleans *)
   | String of string                     (* strings *)
-  | Lazy of expr Lazy.t ref              (* laziness *)
+  | Lazy of expr ref                     (* laziness *)
   | Unit                                 (* units *)
   | Sequence of expr * expr              (* sequences *)
   | Unop of unop * expr                  (* unary operators *)

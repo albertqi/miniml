@@ -63,7 +63,7 @@ expnoapp: INT                   { Num $1 }
         | TRUE                  { Bool true }
         | FALSE                 { Bool false }
         | STRING                { String $1 }
-        | LAZY exp              { Lazy (ref (lazy $2)) }
+        | LAZY exp              { Lazy (ref $2) }
         | UNIT                  { Unit }
         | exp SEQUENCE exp      { Sequence($1, $3) }
         | ID                    { Var $1 }

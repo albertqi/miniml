@@ -400,8 +400,6 @@ let rec eval_l (exp : expr) (env : Env.env) : Env.value =
    correctness-compatible with one of the above, you can incorporate
    your extensions within `eval_s`, `eval_d`, or `eval_l`. *)
 
-let helper = fun x -> x in let lazy_helper = fun x -> lazy (helper x) in let res = lazy_helper 42 in Lazy.force res ;;
-
 let rec eval_e (exp : expr) (env : Env.env) : Env.value =
   (* print_endline (exp_to_concrete_string exp);
   print_endline (Env.env_to_string env);
@@ -419,8 +417,8 @@ let rec eval_e (exp : expr) (env : Env.env) : Env.value =
     if u = Force then
       match u, eval_e e env with
       | Force, Env.Closure (Lazy e, env_closure) ->
-        let res = eval_e (Lazy.force !e) env_closure
-        in e := lazy (extract res); res 
+        let res = eval_e !e env_closure
+        in e := extract res; res 
       | _ -> failwith "FAILUREFAILUREFAILURE"
     else begin
     let res_exp =
