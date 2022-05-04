@@ -73,7 +73,7 @@ module Env : ENV =
     let lookup (env : env) (varname : varid) : value =
       match List.assoc_opt varname env with
       | Some res -> !res
-      | None -> raise (EvalError "lookup: varid not found")
+      | None -> raise (EvalError "varid not found")
 
     let extend (env : env) (varname : varid) (loc : value ref) : env =
       (varname, loc) :: List.filter (fun (var, _val_ref) -> var <> varname) env
@@ -123,7 +123,7 @@ module Env : ENV =
    essentially unchanged, just converted to a value for consistency
    with the signature of the evaluators. *)
    
-(* extract -- Extracts an expr contained within a Env.value *)
+(* extract -- Extracts an Expr.expr contained within a Env.value *)
 let extract (value : Env.value) : expr =
   match value with
   | Env.Val exp
@@ -208,62 +208,11 @@ let eval_t (exp : expr) (_env : Env.env) : Env.value =
    
 let rec eval_s (exp : expr) (env : Env.env) : Env.value =
   match exp with
+  | Num _ | Float _ | Bool _ | String _ | Unit | Sequence _ | Unop _ | Binop _
+  | Conditional _ | Raise | Unassigned -> eval_all eval_s exp env
   | Var _ -> raise (EvalError "invalid var")
-  | Num _ | Float _ | Bool _ | String _ | Unit | Fun _ | FunUnit _ -> Env.Val exp
-  | Unop (u, e) ->
-    let res_exp =
-      match u, eval_s e env |> extract with
-      | Negate, Num n -> Num ~-n
-      | NegateFloat, Float n -> Float ~-.n
-      | Not, Bool b -> Bool (not b)
-      | NaturalLog, Float f -> Float (log f)
-      | Sine, Float f -> Float (sin f)
-      | Cosine, Float f -> Float (cos f)
-      | Tangent, Float f -> Float (tan f)
-      | PrintString, String s -> print_string s; Unit
-      | PrintEndline, String s -> print_endline s; Unit
-      | _ -> raise (EvalError "invalid unop")
-    in Env.Val res_exp
-  | Binop (b, e1, e2) ->
-    let res_exp =
-      match b, eval_s e1 env |> extract, eval_s e2 env |> extract with
-      | Plus, Num n1, Num n2 -> Num (n1 + n2)
-      | PlusFloat, Float n1, Float n2 -> Float (n1 +. n2)
-      | Minus, Num n1, Num n2 -> Num (n1 - n2)
-      | MinusFloat, Float n1, Float n2 -> Float (n1 -. n2)
-      | Times, Num n1, Num n2 -> Num (n1 * n2)
-      | TimesFloat, Float n1, Float n2 -> Float (n1 *. n2)
-      | Divides, Num n1, Num n2 -> Num (n1 / n2)
-      | DividesFloat, Float n1, Float n2 -> Float (n1 /. n2)
-      | Power, Float n1, Float n2 -> Float (n1 ** n2)
-      | Equals, Num n1, Num n2 -> Bool (n1 = n2)
-      | Equals, Float n1, Float n2 -> Bool (n1 = n2)
-      | Equals, Bool n1, Bool n2 -> Bool (n1 = n2)
-      | Equals, String n1, String n2 -> Bool (n1 = n2)
-      | NotEquals, Num n1, Num n2 -> Bool (n1 <> n2)
-      | NotEquals, Float n1, Float n2 -> Bool (n1 <> n2)
-      | NotEquals, Bool n1, Bool n2 -> Bool (n1 <> n2)
-      | NotEquals, String n1, String n2 -> Bool (n1 <> n2)
-      | LessThan, Num n1, Num n2 -> Bool (n1 < n2)
-      | LessThan, Float n1, Float n2 -> Bool (n1 < n2)
-      | LessThan, String n1, String n2 -> Bool (n1 < n2)
-      | GreaterThan, Num n1, Num n2 -> Bool (n1 > n2)
-      | GreaterThan, Float n1, Float n2 -> Bool (n1 > n2)
-      | GreaterThan, String n1, String n2 -> Bool (n1 > n2)
-      | LessThanEquals, Num n1, Num n2 -> Bool (n1 <= n2)
-      | LessThanEquals, Float n1, Float n2 -> Bool (n1 <= n2)
-      | LessThanEquals, String n1, String n2 -> Bool (n1 <= n2)
-      | GreaterThanEquals, Num n1, Num n2 -> Bool (n1 >= n2)
-      | GreaterThanEquals, Float n1, Float n2 -> Bool (n1 >= n2)
-      | GreaterThanEquals, String n1, String n2 -> Bool (n1 >= n2)
-      | Concatenate, String s1, String s2 -> String (s1 ^ s2)
-      | _ -> raise (EvalError "invalid binop")
-    in Env.Val res_exp
-  | Conditional (e1, e2, e3) ->
-    (match eval_s e1 env |> extract with
-     | Bool true -> eval_s e2 env
-     | Bool false -> eval_s e3 env
-     | _ -> raise (EvalError "invalid conditional"))
+  | Lazy _ -> raise (EvalError "lazy expressions not supported; use eval_e")
+  | Fun _ | FunUnit _ -> Env.Val exp
   | Let (v, e1, e2) ->
     let repl_exp = eval_s e1 env |> extract
     in let subst_exp = subst v repl_exp e2
@@ -274,8 +223,6 @@ let rec eval_s (exp : expr) (env : Env.env) : Env.value =
       in subst v (Letrec (v, e1_eval, Var v)) e1_eval
     in let subst_exp = subst v repl_exp e2
     in eval_s subst_exp env
-  | Raise -> raise EvalException
-  | Unassigned -> raise (EvalError "invalid unassigned")
   | App (e1, e2) ->
     match eval_s e1 env |> extract, eval_s e2 env |> extract with
     | Fun (v, e), repl_exp ->
@@ -289,69 +236,16 @@ let rec eval_s (exp : expr) (env : Env.env) : Env.value =
    
 let rec eval_d (exp : expr) (env : Env.env) : Env.value =
   match exp with
+  | Num _ | Float _ | Bool _ | String _ | Unit | Sequence _ | Unop _ | Binop _
+  | Conditional _ | Raise | Unassigned -> eval_all eval_d exp env
   | Var v -> Env.lookup env v
-  | Num _ | Float _ | Bool _ | String _ | Unit | Fun _ | FunUnit _ -> Env.Val exp
-  | Unop (u, e) ->
-    let res_exp =
-      match u, eval_d e env |> extract with
-      | Negate, Num n -> Num ~-n
-      | NegateFloat, Float n -> Float ~-.n
-      | Not, Bool b -> Bool (not b)
-      | NaturalLog, Float f -> Float (log f)
-      | Sine, Float f -> Float (sin f)
-      | Cosine, Float f -> Float (cos f)
-      | Tangent, Float f -> Float (tan f)
-      | PrintString, String s -> print_string s; Unit
-      | PrintEndline, String s -> print_endline s; Unit
-      | _ -> raise (EvalError "invalid unop")
-    in Env.Val res_exp
-  | Binop (b, e1, e2) ->
-    let res_exp =
-      match b, eval_d e1 env |> extract, eval_d e2 env |> extract with
-      | Plus, Num n1, Num n2 -> Num (n1 + n2)
-      | PlusFloat, Float n1, Float n2 -> Float (n1 +. n2)
-      | Minus, Num n1, Num n2 -> Num (n1 - n2)
-      | MinusFloat, Float n1, Float n2 -> Float (n1 -. n2)
-      | Times, Num n1, Num n2 -> Num (n1 * n2)
-      | TimesFloat, Float n1, Float n2 -> Float (n1 *. n2)
-      | Divides, Num n1, Num n2 -> Num (n1 / n2)
-      | DividesFloat, Float n1, Float n2 -> Float (n1 /. n2)
-      | Power, Float n1, Float n2 -> Float (n1 ** n2)
-      | Equals, Num n1, Num n2 -> Bool (n1 = n2)
-      | Equals, Float n1, Float n2 -> Bool (n1 = n2)
-      | Equals, Bool n1, Bool n2 -> Bool (n1 = n2)
-      | Equals, String n1, String n2 -> Bool (n1 = n2)
-      | NotEquals, Num n1, Num n2 -> Bool (n1 <> n2)
-      | NotEquals, Float n1, Float n2 -> Bool (n1 <> n2)
-      | NotEquals, Bool n1, Bool n2 -> Bool (n1 <> n2)
-      | NotEquals, String n1, String n2 -> Bool (n1 <> n2)
-      | LessThan, Num n1, Num n2 -> Bool (n1 < n2)
-      | LessThan, Float n1, Float n2 -> Bool (n1 < n2)
-      | LessThan, String n1, String n2 -> Bool (n1 < n2)
-      | GreaterThan, Num n1, Num n2 -> Bool (n1 > n2)
-      | GreaterThan, Float n1, Float n2 -> Bool (n1 > n2)
-      | GreaterThan, String n1, String n2 -> Bool (n1 > n2)
-      | LessThanEquals, Num n1, Num n2 -> Bool (n1 <= n2)
-      | LessThanEquals, Float n1, Float n2 -> Bool (n1 <= n2)
-      | LessThanEquals, String n1, String n2 -> Bool (n1 <= n2)
-      | GreaterThanEquals, Num n1, Num n2 -> Bool (n1 >= n2)
-      | GreaterThanEquals, Float n1, Float n2 -> Bool (n1 >= n2)
-      | GreaterThanEquals, String n1, String n2 -> Bool (n1 >= n2)
-      | Concatenate, String s1, String s2 -> String (s1 ^ s2)
-      | _ -> raise (EvalError "invalid binop")
-    in Env.Val res_exp
-  | Conditional (e1, e2, e3) ->
-    (match eval_d e1 env |> extract with
-     | Bool true -> eval_d e2 env
-     | Bool false -> eval_d e3 env
-     | _ -> raise (EvalError "invalid conditional"))
+  | Lazy _ -> raise (EvalError "lazy expressions not supported; use eval_e")
+  | Fun _ | FunUnit _ -> Env.Val exp
   | Let (v, e1, e2)
   | Letrec (v, e1, e2) ->
     let repl_exp = eval_d e1 env
     in let ext_env = Env.extend env v (ref repl_exp)
     in eval_d e2 ext_env
-  | Raise -> raise EvalException
-  | Unassigned -> raise (EvalError "invalid unassigned")
   | App (e1, e2) ->
     match eval_d e1 env |> extract, eval_d e2 env with
     | Fun (v, e), repl_exp ->
@@ -364,82 +258,22 @@ let rec eval_d (exp : expr) (env : Env.env) : Env.value =
    completed as (part of) your extension *)
    
 let rec eval_l (exp : expr) (env : Env.env) : Env.value =
-  (* print_string (exp_to_abstract_string exp); *)
-  (* print_endline (Env.env_to_string env); *)
   match exp with
+  | Num _ | Float _ | Bool _ | String _ | Unit | Sequence _ | Unop _ | Binop _
+  | Conditional _ | Raise | Unassigned -> eval_all eval_l exp env
   | Var v -> Env.lookup env v
-  | Num _ | Float _ | Bool _ | String _ | Lazy _ | Unit -> Env.Val exp
+  | Lazy _ -> raise (EvalError "lazy expressions not supported; use eval_e")
   | Fun _ | FunUnit _ -> Env.close exp env
-  | Sequence (e1, e2) ->
-    (match eval_l e1 env |> extract with
-     | Unit -> eval_l e2 env
-     | _ -> raise (EvalError "invalid sequence"))
-  | Unop (u, e) ->
-    let res_exp =
-      match u, eval_l e env |> extract with
-      | Negate, Num n -> Num ~-n
-      | NegateFloat, Float n -> Float ~-.n
-      | Not, Bool b -> Bool (not b)
-      | NaturalLog, Float f -> Float (log f)
-      | Sine, Float f -> Float (sin f)
-      | Cosine, Float f -> Float (cos f)
-      | Tangent, Float f -> Float (tan f)
-      | PrintString, String s -> print_string s; Unit
-      | PrintEndline, String s -> print_endline s; Unit
-      | _ -> raise (EvalError "invalid unop")
-    in Env.Val res_exp
-  | Binop (b, e1, e2) ->
-    let res_exp =
-      match b, eval_l e1 env |> extract, eval_l e2 env |> extract with
-      | Plus, Num n1, Num n2 -> Num (n1 + n2)
-      | PlusFloat, Float n1, Float n2 -> Float (n1 +. n2)
-      | Minus, Num n1, Num n2 -> Num (n1 - n2)
-      | MinusFloat, Float n1, Float n2 -> Float (n1 -. n2)
-      | Times, Num n1, Num n2 -> Num (n1 * n2)
-      | TimesFloat, Float n1, Float n2 -> Float (n1 *. n2)
-      | Divides, Num n1, Num n2 -> Num (n1 / n2)
-      | DividesFloat, Float n1, Float n2 -> Float (n1 /. n2)
-      | Power, Float n1, Float n2 -> Float (n1 ** n2)
-      | Equals, Num n1, Num n2 -> Bool (n1 = n2)
-      | Equals, Float n1, Float n2 -> Bool (n1 = n2)
-      | Equals, Bool n1, Bool n2 -> Bool (n1 = n2)
-      | Equals, String n1, String n2 -> Bool (n1 = n2)
-      | NotEquals, Num n1, Num n2 -> Bool (n1 <> n2)
-      | NotEquals, Float n1, Float n2 -> Bool (n1 <> n2)
-      | NotEquals, Bool n1, Bool n2 -> Bool (n1 <> n2)
-      | NotEquals, String n1, String n2 -> Bool (n1 <> n2)
-      | LessThan, Num n1, Num n2 -> Bool (n1 < n2)
-      | LessThan, Float n1, Float n2 -> Bool (n1 < n2)
-      | LessThan, String n1, String n2 -> Bool (n1 < n2)
-      | GreaterThan, Num n1, Num n2 -> Bool (n1 > n2)
-      | GreaterThan, Float n1, Float n2 -> Bool (n1 > n2)
-      | GreaterThan, String n1, String n2 -> Bool (n1 > n2)
-      | LessThanEquals, Num n1, Num n2 -> Bool (n1 <= n2)
-      | LessThanEquals, Float n1, Float n2 -> Bool (n1 <= n2)
-      | LessThanEquals, String n1, String n2 -> Bool (n1 <= n2)
-      | GreaterThanEquals, Num n1, Num n2 -> Bool (n1 >= n2)
-      | GreaterThanEquals, Float n1, Float n2 -> Bool (n1 >= n2)
-      | GreaterThanEquals, String n1, String n2 -> Bool (n1 >= n2)
-      | Concatenate, String s1, String s2 -> String (s1 ^ s2)
-      | _ -> raise (EvalError "invalid binop")
-    in Env.Val res_exp
-  | Conditional (e1, e2, e3) ->
-    (match eval_l e1 env |> extract with
-     | Bool true -> eval_l e2 env
-     | Bool false -> eval_l e3 env
-     | _ -> raise (EvalError "invalid conditional"))
   | Let (v, e1, e2) ->
     let repl_exp = eval_l e1 env
     in let ext_env = Env.extend env v (ref repl_exp)
     in eval_l e2 ext_env
   | Letrec (v, e1, e2) ->
-    let ref_v = ref (Env.Val Unassigned) in
-    let ext_env = Env.extend env v ref_v in
-    let def_e1 = eval_l e1 ext_env in
+    let ref_v = ref (Env.Val Unassigned)
+    in let ext_env = Env.extend env v ref_v
+    in let def_e1 = eval_l e1 ext_env in
     if def_e1 = Env.Val Unassigned then raise (EvalError "invalid letrec")
     else ref_v := def_e1; eval_l e2 ext_env
-  | Raise -> raise EvalException
-  | Unassigned -> raise (EvalError "invalid unassigned")
   | App (e1, e2) ->
     match eval_l e1 env, eval_l e2 env with
     | Env.Closure (Fun (v, e), closure_env), repl_exp ->
@@ -455,103 +289,28 @@ let rec eval_l (exp : expr) (env : Env.env) : Env.value =
    your extensions within `eval_s`, `eval_d`, or `eval_l`. *)
 
 let rec eval_e (exp : expr) (env : Env.env) : Env.value =
-  (* print_endline (exp_to_abstract_string exp);
-  print_endline (Env.env_to_string env);
-  print_newline (); *)
   match exp with
+  | Num _ | Float _ | Bool _ | String _ | Unit | Sequence _ | Binop _
+  | Conditional _ | Raise | Unassigned -> eval_all eval_e exp env
   | Var v -> Env.lookup env v
-  | Num _ | Float _ | Bool _ | String _ | Unit -> Env.Val exp
-  | Lazy _
-  | Fun _ | FunUnit _ -> Env.close exp env
-  | Sequence (e1, e2) ->
-    (match eval_e e1 env |> extract with
-     | Unit -> eval_e e2 env
-     | _ -> raise (EvalError "invalid sequence"))
+  | Lazy _ | Fun _ | FunUnit _ -> Env.close exp env
   | Unop (u, e) ->
-    if u = Force then
-      match u, eval_e e env with
-      | Force, Env.Closure (Lazy e, env_closure) ->
-        let res = eval_e !e env_closure
-        in (match res with
-        | Env.Val exp
-        | Env.Closure (exp, _) -> e := exp);
-        res
-        (* print_endline "HHHH"; print_endline (Env.value_to_string res); e := extract res; res  *)
-      | _ -> failwith "FAILUREFAILUREFAILURE"
-    else begin
-    let res_exp =
-      match u, eval_e e env |> extract with
-      | Negate, Num n -> Num ~-n
-      | NegateFloat, Float n -> Float ~-.n
-      | Not, Bool b -> Bool (not b)
-      | NaturalLog, Float f -> Float (log f)
-      | Sine, Float f -> Float (sin f)
-      | Cosine, Float f -> Float (cos f)
-      | Tangent, Float f -> Float (tan f)
-      | PrintString, String s -> print_string s; Unit
-      | PrintEndline, String s -> print_endline s; Unit
-      (* | Force, Lazy e ->
-        (match eval_e (Lazy.force !e) env with
-        | Env.Closure closure_exp, closure_env ->
-          let ext_env = 
-        | _ -> failwith ""
-        (* let force_res = eval_e (Lazy.force !e) env |> extract in
-        e := lazy force_res; force_res *) *)
-      | _ -> raise (EvalError "invalid unop")
-    in Env.Val res_exp
-    end
-  | Binop (b, e1, e2) ->
-    let res_exp =
-      match b, eval_e e1 env |> extract, eval_e e2 env |> extract with
-      | Plus, Num n1, Num n2 -> Num (n1 + n2)
-      | PlusFloat, Float n1, Float n2 -> Float (n1 +. n2)
-      | Minus, Num n1, Num n2 -> Num (n1 - n2)
-      | MinusFloat, Float n1, Float n2 -> Float (n1 -. n2)
-      | Times, Num n1, Num n2 -> Num (n1 * n2)
-      | TimesFloat, Float n1, Float n2 -> Float (n1 *. n2)
-      | Divides, Num n1, Num n2 -> Num (n1 / n2)
-      | DividesFloat, Float n1, Float n2 -> Float (n1 /. n2)
-      | Power, Float n1, Float n2 -> Float (n1 ** n2)
-      | Equals, Num n1, Num n2 -> Bool (n1 = n2)
-      | Equals, Float n1, Float n2 -> Bool (n1 = n2)
-      | Equals, Bool n1, Bool n2 -> Bool (n1 = n2)
-      | Equals, String n1, String n2 -> Bool (n1 = n2)
-      | NotEquals, Num n1, Num n2 -> Bool (n1 <> n2)
-      | NotEquals, Float n1, Float n2 -> Bool (n1 <> n2)
-      | NotEquals, Bool n1, Bool n2 -> Bool (n1 <> n2)
-      | NotEquals, String n1, String n2 -> Bool (n1 <> n2)
-      | LessThan, Num n1, Num n2 -> Bool (n1 < n2)
-      | LessThan, Float n1, Float n2 -> Bool (n1 < n2)
-      | LessThan, String n1, String n2 -> Bool (n1 < n2)
-      | GreaterThan, Num n1, Num n2 -> Bool (n1 > n2)
-      | GreaterThan, Float n1, Float n2 -> Bool (n1 > n2)
-      | GreaterThan, String n1, String n2 -> Bool (n1 > n2)
-      | LessThanEquals, Num n1, Num n2 -> Bool (n1 <= n2)
-      | LessThanEquals, Float n1, Float n2 -> Bool (n1 <= n2)
-      | LessThanEquals, String n1, String n2 -> Bool (n1 <= n2)
-      | GreaterThanEquals, Num n1, Num n2 -> Bool (n1 >= n2)
-      | GreaterThanEquals, Float n1, Float n2 -> Bool (n1 >= n2)
-      | GreaterThanEquals, String n1, String n2 -> Bool (n1 >= n2)
-      | Concatenate, String s1, String s2 -> String (s1 ^ s2)
-      | _ -> raise (EvalError "invalid binop")
-    in Env.Val res_exp
-  | Conditional (e1, e2, e3) ->
-    (match eval_e e1 env |> extract with
-     | Bool true -> eval_e e2 env
-     | Bool false -> eval_e e3 env
-     | _ -> raise (EvalError "invalid conditional"))
+    (match u, eval_e e env with
+     | Force, Env.Closure (Lazy e, env_closure) ->
+       let res = eval_e !e env_closure
+       in e := extract res; res
+     | Force, _ -> raise (EvalError "invalid lazy")
+     | _ -> eval_all eval_e exp env)
   | Let (v, e1, e2) ->
     let repl_exp = eval_e e1 env
     in let ext_env = Env.extend env v (ref repl_exp)
     in eval_e e2 ext_env
   | Letrec (v, e1, e2) ->
-    let ref_v = ref (Env.Val Unassigned) in
-    let ext_env = Env.extend env v ref_v in
-    let def_e1 = eval_e e1 ext_env in
+    let ref_v = ref (Env.Val Unassigned)
+    in let ext_env = Env.extend env v ref_v
+    in let def_e1 = eval_e e1 ext_env in
     if def_e1 = Env.Val Unassigned then raise (EvalError "invalid letrec")
     else ref_v := def_e1; eval_e e2 ext_env
-  | Raise -> raise EvalException
-  | Unassigned -> raise (EvalError "invalid unassigned")
   | App (e1, e2) ->
     match eval_e e1 env, eval_e e2 env with
     | Env.Closure (Fun (v, e), closure_env), repl_exp ->
@@ -569,4 +328,4 @@ let rec eval_e (exp : expr) (env : Env.env) : Env.value =
    above, not the `evaluate` function, so it doesn't matter how it's
    set when you submit your solution.) *)
    
-let evaluate = eval_e ;;
+let evaluate = eval_t ;;

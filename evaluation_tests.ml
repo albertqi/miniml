@@ -69,6 +69,9 @@ let fact20 =
 (* let x = () in (fun () -> 7) x *)
 let unit_function = Let("x", Unit, App(FunUnit(Unit, Num(7)), Var("x"))) ;;
 
+(* let rec x = x in x *)
+let invalid_letrec = Letrec("x", Var("x"), Var("x")) ;;
+
 (* let f = fun x -> fun y -> x + y in f 5 7 *)
 let simple_curried =
   Let("f", Fun("x", Fun("y", Binop(Plus, Var("x"), Var("y")))),
@@ -163,6 +166,9 @@ let eval_all_test (eval : expr -> Env.env -> Env.value) =
             "eval all fact20";
   unit_test (eval unit_function empty = Env.Val (Num 7))
             "eval all unit function";
+  unit_test (try eval invalid_letrec empty <> eval invalid_letrec empty
+             with EvalError _ -> true | _ -> false)
+            "eval all invalid letrec";
   unit_test (try eval (Unop(Not, Num 1)) empty <> eval (Unop(Not, Num 1)) empty
              with EvalError _ -> true | _ -> false)
             "eval all type mismatch not";
