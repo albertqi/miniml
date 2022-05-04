@@ -95,24 +95,6 @@ module Env : ENV =
              else (count := !count - 1; substr ^ "; "))
           "" env
       in "{" ^ str_contents ^ "}"
-
-    (* let run_tests () : unit =
-      let test_env : env = [("x", ref (Val (Num 5)))] in
-      Printf.printf ("%s\n") (env_to_string test_env);
-      assert (lookup test_env "x" = Val (Num 5));
-      let test_env2 : env = ("y", ref (Val (Bool false))) :: test_env in
-      assert (lookup test_env2 "y" = Val (Bool false));
-      assert (lookup test_env2 "x" = Val (Num 5));
-      Printf.printf ("%s\n") (env_to_string test_env2);
-      let test_env3 : env = extend test_env2 "z" (ref (Val (Num 7))) in
-      Printf.printf ("%s\n") (env_to_string test_env3);
-      assert (lookup test_env3 "y" = Val (Bool false));
-      assert (lookup test_env3 "x" = Val (Num 5));
-      assert (lookup test_env3 "z" = Val (Num 7));
-      let test_env4 : env = extend test_env3 "z" (ref (Val (Num 8))) in
-      Printf.printf ("%s\n") (env_to_string test_env4);
-      assert (lookup test_env4 "z" = Val (Num 8)) ;; *)
-
   end
 ;;
 
@@ -141,10 +123,82 @@ module Env : ENV =
    essentially unchanged, just converted to a value for consistency
    with the signature of the evaluators. *)
    
+(* extract -- Extracts an expr contained within a Env.value *)
 let extract (value : Env.value) : expr =
   match value with
-  | Env.Val exp -> exp
-  | _ -> raise (Failure "extract: invalid value") ;;
+  | Env.Val exp
+  | Env.Closure (exp, _) -> exp ;;
+
+(* eval_all -- Evaluator for expressions independent of semantics *)
+let eval_all
+      (eval : Expr.expr -> Env.env -> Env.value)
+      (exp : expr)
+      (env : Env.env)
+    : Env.value = 
+  match exp with
+  | Num _ | Float _ | Bool _ | String _ | Unit -> Env.Val exp
+  | Sequence (e1, e2) ->
+    (match eval e1 env |> extract with
+     | Unit -> eval e2 env
+     | _ -> raise (EvalError "invalid sequence"))
+  | Unop (u, e) ->
+    let res_exp =
+      match u, eval e env |> extract with
+      | Negate, Num n -> Num ~-n
+      | NegateFloat, Float n -> Float ~-.n
+      | Not, Bool b -> Bool (not b)
+      | NaturalLog, Float f -> Float (log f)
+      | Sine, Float f -> Float (sin f)
+      | Cosine, Float f -> Float (cos f)
+      | Tangent, Float f -> Float (tan f)
+      | PrintString, String s -> print_string s; Unit
+      | PrintEndline, String s -> print_endline s; Unit
+      | _ -> raise (EvalError "invalid unop")
+    in Env.Val res_exp
+  | Binop (b, e1, e2) ->
+    let res_exp =
+      match b, eval e1 env |> extract, eval e2 env |> extract with
+      | Plus, Num n1, Num n2 -> Num (n1 + n2)
+      | PlusFloat, Float n1, Float n2 -> Float (n1 +. n2)
+      | Minus, Num n1, Num n2 -> Num (n1 - n2)
+      | MinusFloat, Float n1, Float n2 -> Float (n1 -. n2)
+      | Times, Num n1, Num n2 -> Num (n1 * n2)
+      | TimesFloat, Float n1, Float n2 -> Float (n1 *. n2)
+      | Divides, Num n1, Num n2 -> Num (n1 / n2)
+      | DividesFloat, Float n1, Float n2 -> Float (n1 /. n2)
+      | Power, Float n1, Float n2 -> Float (n1 ** n2)
+      | Equals, Num n1, Num n2 -> Bool (n1 = n2)
+      | Equals, Float n1, Float n2 -> Bool (n1 = n2)
+      | Equals, Bool n1, Bool n2 -> Bool (n1 = n2)
+      | Equals, String n1, String n2 -> Bool (n1 = n2)
+      | NotEquals, Num n1, Num n2 -> Bool (n1 <> n2)
+      | NotEquals, Float n1, Float n2 -> Bool (n1 <> n2)
+      | NotEquals, Bool n1, Bool n2 -> Bool (n1 <> n2)
+      | NotEquals, String n1, String n2 -> Bool (n1 <> n2)
+      | LessThan, Num n1, Num n2 -> Bool (n1 < n2)
+      | LessThan, Float n1, Float n2 -> Bool (n1 < n2)
+      | LessThan, String n1, String n2 -> Bool (n1 < n2)
+      | GreaterThan, Num n1, Num n2 -> Bool (n1 > n2)
+      | GreaterThan, Float n1, Float n2 -> Bool (n1 > n2)
+      | GreaterThan, String n1, String n2 -> Bool (n1 > n2)
+      | LessThanEquals, Num n1, Num n2 -> Bool (n1 <= n2)
+      | LessThanEquals, Float n1, Float n2 -> Bool (n1 <= n2)
+      | LessThanEquals, String n1, String n2 -> Bool (n1 <= n2)
+      | GreaterThanEquals, Num n1, Num n2 -> Bool (n1 >= n2)
+      | GreaterThanEquals, Float n1, Float n2 -> Bool (n1 >= n2)
+      | GreaterThanEquals, String n1, String n2 -> Bool (n1 >= n2)
+      | Concatenate, String s1, String s2 -> String (s1 ^ s2)
+      | _ -> raise (EvalError "invalid binop")
+    in Env.Val res_exp
+  | Conditional (e1, e2, e3) ->
+    (match eval e1 env |> extract with
+     | Bool true -> eval e2 env
+     | Bool false -> eval e3 env
+     | _ -> raise (EvalError "invalid conditional"))
+  | Raise -> raise EvalException
+  | Unassigned -> raise (EvalError "invalid unassigned")
+  | Var _ | Lazy _ | Fun _ | FunUnit _ | Let _ | Letrec _ | App _ ->
+    eval exp env ;;
 
 let eval_t (exp : expr) (_env : Env.env) : Env.value =
   (* coerce the expr, unchanged, into a value *)
@@ -310,8 +364,8 @@ let rec eval_d (exp : expr) (env : Env.env) : Env.value =
    completed as (part of) your extension *)
    
 let rec eval_l (exp : expr) (env : Env.env) : Env.value =
-  (* print_string (exp_to_abstract_string exp);
-  print_endline (Env.env_to_string env); *)
+  (* print_string (exp_to_abstract_string exp); *)
+  (* print_endline (Env.env_to_string env); *)
   match exp with
   | Var v -> Env.lookup env v
   | Num _ | Float _ | Bool _ | String _ | Lazy _ | Unit -> Env.Val exp
@@ -401,7 +455,7 @@ let rec eval_l (exp : expr) (env : Env.env) : Env.value =
    your extensions within `eval_s`, `eval_d`, or `eval_l`. *)
 
 let rec eval_e (exp : expr) (env : Env.env) : Env.value =
-  (* print_endline (exp_to_concrete_string exp);
+  (* print_endline (exp_to_abstract_string exp);
   print_endline (Env.env_to_string env);
   print_newline (); *)
   match exp with
@@ -418,7 +472,11 @@ let rec eval_e (exp : expr) (env : Env.env) : Env.value =
       match u, eval_e e env with
       | Force, Env.Closure (Lazy e, env_closure) ->
         let res = eval_e !e env_closure
-        in e := extract res; res 
+        in (match res with
+        | Env.Val exp
+        | Env.Closure (exp, _) -> e := exp);
+        res
+        (* print_endline "HHHH"; print_endline (Env.value_to_string res); e := extract res; res  *)
       | _ -> failwith "FAILUREFAILUREFAILURE"
     else begin
     let res_exp =

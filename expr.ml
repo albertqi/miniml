@@ -47,7 +47,7 @@ type expr =
   | Float of float                       (* floats *)
   | Bool of bool                         (* booleans *)
   | String of string                     (* strings *)
-  | Lazy of expr ref                     (* laziness *)
+  | Lazy of expr ref                     (* lazy expressions *)
   | Unit                                 (* units *)
   | Sequence of expr * expr              (* sequences *)
   | Unop of unop * expr                  (* unary operators *)
@@ -235,12 +235,12 @@ let rec exp_to_concrete_string (exp : expr) : string =
    abstract syntax of the expression `exp` *)
 let rec exp_to_abstract_string (exp : expr) : string =
   match exp with
-  | Var v -> "Var(" ^ v ^ ")"
+  | Var v -> "Var(\"" ^ v ^ "\")"
   | Num n -> "Num(" ^ string_of_int n ^ ")"
   | Float n -> "Float(" ^ string_of_float n ^ ")"
   | Bool b -> "Bool(" ^ string_of_bool b ^ ")"
-  | String s -> "String(" ^ s ^ ")"
-  | Lazy e -> "Lazy(" ^ exp_to_abstract_string !e ^ ")"
+  | String s -> "String(\"" ^ s ^ "\")"
+  | Lazy e -> "Lazy(ref " ^ exp_to_abstract_string !e ^ ")"
   | Unit -> "Unit"
   | Sequence (e1, e2) -> 
     let e1_str, e2_str = exp_to_abstract_string e1, exp_to_abstract_string e2
@@ -286,14 +286,14 @@ let rec exp_to_abstract_string (exp : expr) : string =
                                  exp_to_abstract_string e2,
                                  exp_to_abstract_string e3
     in "Conditional(" ^ e1_str ^ ", " ^ e2_str ^ ", " ^ e3_str ^ ")"
-  | Fun (v, e) -> "Fun(" ^ v ^ ", " ^ exp_to_abstract_string e ^ ")"
+  | Fun (v, e) -> "Fun(\"" ^ v ^ "\", " ^ exp_to_abstract_string e ^ ")"
   | FunUnit (_, e) -> "FunUnit(Unit, " ^ exp_to_abstract_string e ^ ")"
   | Let (v, e1, e2) ->
     let e1_str, e2_str = exp_to_abstract_string e1, exp_to_abstract_string e2
-    in "Let(" ^ v ^ ", " ^ e1_str ^ ", " ^ e2_str ^ ")"
+    in "Let(\"" ^ v ^ "\", " ^ e1_str ^ ", " ^ e2_str ^ ")"
   | Letrec (v, e1, e2) ->
     let e1_str, e2_str = exp_to_abstract_string e1, exp_to_abstract_string e2
-    in "Letrec(" ^ v ^ ", " ^ e1_str ^ ", " ^ e2_str ^ ")"
+    in "Letrec(\"" ^ v ^ "\", " ^ e1_str ^ ", " ^ e2_str ^ ")"
   | Raise -> "parse error"
   | Unassigned -> "unassigned"
   | App (e1, e2) ->
