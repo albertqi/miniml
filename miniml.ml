@@ -44,7 +44,7 @@ let repl () =
            element of the `Env.value` type (found in `expr.ml`), so we
            just extract the expression back out and print it *)
         match res with
-        | Val resexp ->
+        | Ev.Env.Val resexp ->
            printf "==> %s\n" (Ex.exp_to_abstract_string resexp)
         | _ -> failwith "not handling other cases yet"
       with

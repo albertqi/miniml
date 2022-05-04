@@ -193,14 +193,18 @@ let eval_all_test (eval : expr -> Env.env -> Env.value) =
              with EvalError _ -> true | _ -> false)
             "eval all type mismatch equals" ;;
 
+(* Tests that apply to s, l, and e evaluators *)
+let eval_sle_test (eval : expr -> Env.env -> Env.value) =
+  eval_all_test eval;
+  unit_test (eval simple_curried empty = Env.Val (Num 12))
+            "eval sle simple curried";
+  unit_test (eval complex_curried empty = Env.Val (Num ~-8))
+            "eval sle complex curried";
+  unit_test (eval simple_dynamic_test empty = Env.Val (Num 5))
+            "eval sle simple dynamic" ;;
+
 let eval_s_test () =
-  eval_all_test eval_s;
-  unit_test (eval_s simple_curried empty = Env.Val (Num 12))
-            "eval_s simple curried";
-  unit_test (eval_s complex_curried empty = Env.Val (Num ~-8))
-            "eval_s complex curried";
-  unit_test (eval_s simple_dynamic_test empty = Env.Val (Num 5))
-            "eval_s simple dynamic" ;;
+  eval_sle_test eval_s ;;
 
 let eval_d_test () =
   eval_all_test eval_d;
@@ -213,23 +217,11 @@ let eval_d_test () =
             "eval_d simple dynamic" ;;
 
 let eval_l_test () =
-  eval_all_test eval_l;
-  unit_test (eval_l simple_curried empty = Env.Val (Num 12))
-            "eval_l simple curried";
-  unit_test (eval_l complex_curried empty = Env.Val (Num ~-8))
-            "eval_l complex curried";
-  unit_test (eval_l simple_dynamic_test empty = Env.Val (Num 5))
-            "eval_l simple dynamic" ;;
+  eval_sle_test eval_l ;;
 
 (* Additionally, test lazy expressions evaluated with eval_e *)
 let eval_e_test () =
-  eval_all_test eval_e;
-  unit_test (eval_e simple_curried empty = Env.Val (Num 12))
-            "eval_e simple curried";
-  unit_test (eval_e complex_curried empty = Env.Val (Num ~-8))
-            "eval_e complex curried";
-  unit_test (eval_e simple_dynamic_test empty = Env.Val (Num 5))
-            "eval_e simple dynamic";
+  eval_sle_test eval_e;
   (* force lazy 7 *)
   let simple_lazy = Unop(Force, Lazy(ref (Num 7))) in
   unit_test (eval_e simple_lazy empty = Env.Val (Num 7))
