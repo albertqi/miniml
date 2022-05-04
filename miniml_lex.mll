@@ -32,7 +32,9 @@
                        ("cos", COSINE);
                        ("tan", TANGENT);
                        ("print_string", PRINTSTRING);
-                       ("print_endline", PRINTENDLINE)
+                       ("print_endline", PRINTENDLINE);
+                       ("lazy", LAZY);
+                       ("force", FORCE)
                      ]
                      
   let sym_table = 
@@ -59,6 +61,7 @@
                        ("/.", DIVIDESFLOAT);
                        ("**", POWER);
                        ("()", UNIT);
+                       (";", SEQUENCE);
                        ("(", OPEN);
                        (")", CLOSE)
                      ]

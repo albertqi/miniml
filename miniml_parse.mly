@@ -28,7 +28,9 @@
 %token <int> INT 
 %token <float> FLOAT
 %token <string> STRING
+%token LAZY FORCE
 %token UNIT
+%token SEQUENCE
 %token TRUE FALSE
 
 %nonassoc IF
@@ -38,11 +40,13 @@
 %left TIMES TIMESFLOAT DIVIDES DIVIDESFLOAT
 %right POWER
 %right CONCATENATE
+%right SEQUENCE
 %nonassoc NEG NEGFLOAT
 %nonassoc NOT
 %nonassoc NATURALLOG
 %nonassoc SINE COSINE TANGENT
 %nonassoc PRINTSTRING PRINTENDLINE
+%nonassoc LAZY FORCE
 
 %start input
 %type <Expr.expr> input
@@ -59,7 +63,9 @@ expnoapp: INT                   { Num $1 }
         | TRUE                  { Bool true }
         | FALSE                 { Bool false }
         | STRING                { String $1 }
+        | LAZY exp              { Lazy (ref (lazy $2)) }
         | UNIT                  { Unit }
+        | exp SEQUENCE exp      { Sequence($1, $3) }
         | ID                    { Var $1 }
         | NEG exp               { Unop(Negate, $2) }
         | NEGFLOAT exp          { Unop(NegateFloat, $2) }
@@ -70,6 +76,7 @@ expnoapp: INT                   { Num $1 }
         | TANGENT exp           { Unop(Tangent, $2) }
         | PRINTSTRING exp       { Unop(PrintString, $2) }
         | PRINTENDLINE exp      { Unop(PrintEndline, $2) }
+        | FORCE exp             { Unop(Force, $2) }
         | exp PLUS exp          { Binop(Plus, $1, $3) }
         | exp PLUSFLOAT exp     { Binop(PlusFloat, $1, $3) }
         | exp MINUS exp         { Binop(Minus, $1, $3) }

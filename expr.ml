@@ -17,6 +17,7 @@ type unop =
   | Tangent
   | PrintString
   | PrintEndline
+  | Force
 ;;
     
 type binop =
@@ -46,7 +47,9 @@ type expr =
   | Float of float                       (* floats *)
   | Bool of bool                         (* booleans *)
   | String of string                     (* strings *)
+  | Lazy of expr Lazy.t ref              (* laziness *)
   | Unit                                 (* units *)
+  | Sequence of expr * expr              (* sequences *)
   | Unop of unop * expr                  (* unary operators *)
   | Binop of binop * expr * expr         (* binary operators *)
   | Conditional of expr * expr * expr    (* if then else *)
@@ -87,6 +90,7 @@ let rec free_vars (exp : expr) : varidset =
   match exp with
   | Num _ | Float _ | Bool _ | String _ | Unit | Raise | Unassigned -> SS.empty
   | Var v -> SS.singleton v
+  | Lazy _ -> SS.empty
   | Unop (_, e)
   | FunUnit (_, e) -> free_vars e
   | Binop (_, e1, e2)
@@ -129,6 +133,7 @@ let rec subst (var_name : varid) (repl : expr) (exp : expr) : expr =
   match exp with
   | Num _ | Float _ | Bool _ | String _ | Unit | Raise | Unassigned -> exp
   | Var v -> if v = var_name then repl else Var v
+  | Lazy _ -> exp
   | Unop (u, e) -> Unop (u, subst var_name repl e)
   | Binop (b, e1, e2) -> Binop (b, subst var_name repl e1, subst var_name repl e2)
   | Conditional (e1, e2, e3) ->
@@ -166,7 +171,11 @@ let rec exp_to_concrete_string (exp : expr) : string =
   | Float n -> string_of_float n
   | Bool b -> string_of_bool b
   | String s -> "\"" ^ s ^ "\""
+  | Lazy e -> "lazy (" ^ exp_to_concrete_string (Lazy.force !e) ^ ")"
   | Unit -> "()"
+  | Sequence (e1, e2) ->
+    let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
+    in e1_str ^ "; " ^ e2_str
   | Unop (u, e) ->
     let e_str = exp_to_concrete_string e
     in let unop_str =
@@ -180,6 +189,7 @@ let rec exp_to_concrete_string (exp : expr) : string =
       | Tangent -> "tan "
       | PrintString -> "print_string "
       | PrintEndline -> "print_endline "
+      | Force -> "force "
     in unop_str ^ e_str
   | Binop (b, e1, e2) ->
     let e1_str, e2_str = exp_to_concrete_string e1, exp_to_concrete_string e2
@@ -230,7 +240,11 @@ let rec exp_to_abstract_string (exp : expr) : string =
   | Float n -> "Float(" ^ string_of_float n ^ ")"
   | Bool b -> "Bool(" ^ string_of_bool b ^ ")"
   | String s -> "String(" ^ s ^ ")"
+  | Lazy e -> "Lazy(" ^ exp_to_abstract_string (Lazy.force !e) ^ ")"
   | Unit -> "Unit"
+  | Sequence (e1, e2) -> 
+    let e1_str, e2_str = exp_to_abstract_string e1, exp_to_abstract_string e2
+    in "Sequence(" ^ e1_str ^ ", " ^ e2_str ^ ")"
   | Unop (u, e) ->
     let e_str = exp_to_abstract_string e
     in let unop_str =
@@ -244,6 +258,7 @@ let rec exp_to_abstract_string (exp : expr) : string =
       | Tangent -> "Tangent"
       | PrintString -> "PrintString"
       | PrintEndline -> "PrintEndline"
+      | Force -> "Force"
     in "Unop(" ^ unop_str ^ ", " ^ e_str ^ ")"
   | Binop (b, e1, e2) ->
     let e1_str, e2_str = exp_to_abstract_string e1, exp_to_abstract_string e2

@@ -18,6 +18,7 @@ type unop =
   | Tangent
   | PrintString
   | PrintEndline
+  | Force
 ;;
 
 (* Binary operators *)
@@ -50,7 +51,9 @@ type expr =
   | Float of float                       (* floats *)
   | Bool of bool                         (* booleans *)
   | String of string                     (* strings *)
+  | Lazy of expr Lazy.t ref              (* laziness *)
   | Unit                                 (* units *)
+  | Sequence of expr * expr              (* sequences *)
   | Unop of unop * expr                  (* unary operators *)
   | Binop of binop * expr * expr         (* binary operators *)
   | Conditional of expr * expr * expr    (* if then else *)

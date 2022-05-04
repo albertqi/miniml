@@ -309,16 +309,201 @@ let rec eval_d (exp : expr) (env : Env.env) : Env.value =
 (* The LEXICALLY-SCOPED ENVIRONMENT MODEL evaluator -- optionally
    completed as (part of) your extension *)
    
-let eval_l (_exp : expr) (_env : Env.env) : Env.value =
-  failwith "eval_l not implemented" ;;
+let rec eval_l (exp : expr) (env : Env.env) : Env.value =
+  (* print_string (exp_to_abstract_string exp);
+  print_endline (Env.env_to_string env); *)
+  match exp with
+  | Var v -> Env.lookup env v
+  | Num _ | Float _ | Bool _ | String _ | Lazy _ | Unit -> Env.Val exp
+  | Fun _ | FunUnit _ -> Env.close exp env
+  | Sequence (e1, e2) ->
+    (match eval_l e1 env |> extract with
+     | Unit -> eval_l e2 env
+     | _ -> raise (EvalError "invalid sequence"))
+  | Unop (u, e) ->
+    let res_exp =
+      match u, eval_l e env |> extract with
+      | Negate, Num n -> Num ~-n
+      | NegateFloat, Float n -> Float ~-.n
+      | Not, Bool b -> Bool (not b)
+      | NaturalLog, Float f -> Float (log f)
+      | Sine, Float f -> Float (sin f)
+      | Cosine, Float f -> Float (cos f)
+      | Tangent, Float f -> Float (tan f)
+      | PrintString, String s -> print_string s; Unit
+      | PrintEndline, String s -> print_endline s; Unit
+      | _ -> raise (EvalError "invalid unop")
+    in Env.Val res_exp
+  | Binop (b, e1, e2) ->
+    let res_exp =
+      match b, eval_l e1 env |> extract, eval_l e2 env |> extract with
+      | Plus, Num n1, Num n2 -> Num (n1 + n2)
+      | PlusFloat, Float n1, Float n2 -> Float (n1 +. n2)
+      | Minus, Num n1, Num n2 -> Num (n1 - n2)
+      | MinusFloat, Float n1, Float n2 -> Float (n1 -. n2)
+      | Times, Num n1, Num n2 -> Num (n1 * n2)
+      | TimesFloat, Float n1, Float n2 -> Float (n1 *. n2)
+      | Divides, Num n1, Num n2 -> Num (n1 / n2)
+      | DividesFloat, Float n1, Float n2 -> Float (n1 /. n2)
+      | Power, Float n1, Float n2 -> Float (n1 ** n2)
+      | Equals, Num n1, Num n2 -> Bool (n1 = n2)
+      | Equals, Float n1, Float n2 -> Bool (n1 = n2)
+      | Equals, Bool n1, Bool n2 -> Bool (n1 = n2)
+      | Equals, String n1, String n2 -> Bool (n1 = n2)
+      | NotEquals, Num n1, Num n2 -> Bool (n1 <> n2)
+      | NotEquals, Float n1, Float n2 -> Bool (n1 <> n2)
+      | NotEquals, Bool n1, Bool n2 -> Bool (n1 <> n2)
+      | NotEquals, String n1, String n2 -> Bool (n1 <> n2)
+      | LessThan, Num n1, Num n2 -> Bool (n1 < n2)
+      | LessThan, Float n1, Float n2 -> Bool (n1 < n2)
+      | LessThan, String n1, String n2 -> Bool (n1 < n2)
+      | GreaterThan, Num n1, Num n2 -> Bool (n1 > n2)
+      | GreaterThan, Float n1, Float n2 -> Bool (n1 > n2)
+      | GreaterThan, String n1, String n2 -> Bool (n1 > n2)
+      | LessThanEquals, Num n1, Num n2 -> Bool (n1 <= n2)
+      | LessThanEquals, Float n1, Float n2 -> Bool (n1 <= n2)
+      | LessThanEquals, String n1, String n2 -> Bool (n1 <= n2)
+      | GreaterThanEquals, Num n1, Num n2 -> Bool (n1 >= n2)
+      | GreaterThanEquals, Float n1, Float n2 -> Bool (n1 >= n2)
+      | GreaterThanEquals, String n1, String n2 -> Bool (n1 >= n2)
+      | Concatenate, String s1, String s2 -> String (s1 ^ s2)
+      | _ -> raise (EvalError "invalid binop")
+    in Env.Val res_exp
+  | Conditional (e1, e2, e3) ->
+    (match eval_l e1 env |> extract with
+     | Bool true -> eval_l e2 env
+     | Bool false -> eval_l e3 env
+     | _ -> raise (EvalError "invalid conditional"))
+  | Let (v, e1, e2) ->
+    let repl_exp = eval_l e1 env
+    in let ext_env = Env.extend env v (ref repl_exp)
+    in eval_l e2 ext_env
+  | Letrec (v, e1, e2) ->
+    let ref_v = ref (Env.Val Unassigned) in
+    let ext_env = Env.extend env v ref_v in
+    let def_e1 = eval_l e1 ext_env in
+    if def_e1 = Env.Val Unassigned then raise (EvalError "invalid letrec")
+    else ref_v := def_e1; eval_l e2 ext_env
+  | Raise -> raise EvalException
+  | Unassigned -> raise (EvalError "invalid unassigned")
+  | App (e1, e2) ->
+    match eval_l e1 env, eval_l e2 env with
+    | Env.Closure (Fun (v, e), closure_env), repl_exp ->
+      let ext_env = ref repl_exp |> Env.extend closure_env v
+      in eval_l e ext_env
+    | Env.Closure (FunUnit (Unit, e), closure_env), Env.Val Unit ->
+      eval_l e closure_env
+    | _ -> raise (EvalError "invalid app") ;;
 
 (* The EXTENDED evaluator -- if you want, you can provide your
    extension as a separate evaluator, or if it is type- and
    correctness-compatible with one of the above, you can incorporate
    your extensions within `eval_s`, `eval_d`, or `eval_l`. *)
 
-let eval_e _ =
-  failwith "eval_e not implemented" ;;
+let helper = fun x -> x in let lazy_helper = fun x -> lazy (helper x) in let res = lazy_helper 42 in Lazy.force res ;;
+
+let rec eval_e (exp : expr) (env : Env.env) : Env.value =
+  (* print_endline (exp_to_concrete_string exp);
+  print_endline (Env.env_to_string env);
+  print_newline (); *)
+  match exp with
+  | Var v -> Env.lookup env v
+  | Num _ | Float _ | Bool _ | String _ | Unit -> Env.Val exp
+  | Lazy _
+  | Fun _ | FunUnit _ -> Env.close exp env
+  | Sequence (e1, e2) ->
+    (match eval_e e1 env |> extract with
+     | Unit -> eval_e e2 env
+     | _ -> raise (EvalError "invalid sequence"))
+  | Unop (u, e) ->
+    if u = Force then
+      match u, eval_e e env with
+      | Force, Env.Closure (Lazy e, env_closure) ->
+        let res = eval_e (Lazy.force !e) env_closure
+        in e := lazy (extract res); res 
+      | _ -> failwith "FAILUREFAILUREFAILURE"
+    else begin
+    let res_exp =
+      match u, eval_e e env |> extract with
+      | Negate, Num n -> Num ~-n
+      | NegateFloat, Float n -> Float ~-.n
+      | Not, Bool b -> Bool (not b)
+      | NaturalLog, Float f -> Float (log f)
+      | Sine, Float f -> Float (sin f)
+      | Cosine, Float f -> Float (cos f)
+      | Tangent, Float f -> Float (tan f)
+      | PrintString, String s -> print_string s; Unit
+      | PrintEndline, String s -> print_endline s; Unit
+      (* | Force, Lazy e ->
+        (match eval_e (Lazy.force !e) env with
+        | Env.Closure closure_exp, closure_env ->
+          let ext_env = 
+        | _ -> failwith ""
+        (* let force_res = eval_e (Lazy.force !e) env |> extract in
+        e := lazy force_res; force_res *) *)
+      | _ -> raise (EvalError "invalid unop")
+    in Env.Val res_exp
+    end
+  | Binop (b, e1, e2) ->
+    let res_exp =
+      match b, eval_e e1 env |> extract, eval_e e2 env |> extract with
+      | Plus, Num n1, Num n2 -> Num (n1 + n2)
+      | PlusFloat, Float n1, Float n2 -> Float (n1 +. n2)
+      | Minus, Num n1, Num n2 -> Num (n1 - n2)
+      | MinusFloat, Float n1, Float n2 -> Float (n1 -. n2)
+      | Times, Num n1, Num n2 -> Num (n1 * n2)
+      | TimesFloat, Float n1, Float n2 -> Float (n1 *. n2)
+      | Divides, Num n1, Num n2 -> Num (n1 / n2)
+      | DividesFloat, Float n1, Float n2 -> Float (n1 /. n2)
+      | Power, Float n1, Float n2 -> Float (n1 ** n2)
+      | Equals, Num n1, Num n2 -> Bool (n1 = n2)
+      | Equals, Float n1, Float n2 -> Bool (n1 = n2)
+      | Equals, Bool n1, Bool n2 -> Bool (n1 = n2)
+      | Equals, String n1, String n2 -> Bool (n1 = n2)
+      | NotEquals, Num n1, Num n2 -> Bool (n1 <> n2)
+      | NotEquals, Float n1, Float n2 -> Bool (n1 <> n2)
+      | NotEquals, Bool n1, Bool n2 -> Bool (n1 <> n2)
+      | NotEquals, String n1, String n2 -> Bool (n1 <> n2)
+      | LessThan, Num n1, Num n2 -> Bool (n1 < n2)
+      | LessThan, Float n1, Float n2 -> Bool (n1 < n2)
+      | LessThan, String n1, String n2 -> Bool (n1 < n2)
+      | GreaterThan, Num n1, Num n2 -> Bool (n1 > n2)
+      | GreaterThan, Float n1, Float n2 -> Bool (n1 > n2)
+      | GreaterThan, String n1, String n2 -> Bool (n1 > n2)
+      | LessThanEquals, Num n1, Num n2 -> Bool (n1 <= n2)
+      | LessThanEquals, Float n1, Float n2 -> Bool (n1 <= n2)
+      | LessThanEquals, String n1, String n2 -> Bool (n1 <= n2)
+      | GreaterThanEquals, Num n1, Num n2 -> Bool (n1 >= n2)
+      | GreaterThanEquals, Float n1, Float n2 -> Bool (n1 >= n2)
+      | GreaterThanEquals, String n1, String n2 -> Bool (n1 >= n2)
+      | Concatenate, String s1, String s2 -> String (s1 ^ s2)
+      | _ -> raise (EvalError "invalid binop")
+    in Env.Val res_exp
+  | Conditional (e1, e2, e3) ->
+    (match eval_e e1 env |> extract with
+     | Bool true -> eval_e e2 env
+     | Bool false -> eval_e e3 env
+     | _ -> raise (EvalError "invalid conditional"))
+  | Let (v, e1, e2) ->
+    let repl_exp = eval_e e1 env
+    in let ext_env = Env.extend env v (ref repl_exp)
+    in eval_e e2 ext_env
+  | Letrec (v, e1, e2) ->
+    let ref_v = ref (Env.Val Unassigned) in
+    let ext_env = Env.extend env v ref_v in
+    let def_e1 = eval_e e1 ext_env in
+    if def_e1 = Env.Val Unassigned then raise (EvalError "invalid letrec")
+    else ref_v := def_e1; eval_e e2 ext_env
+  | Raise -> raise EvalException
+  | Unassigned -> raise (EvalError "invalid unassigned")
+  | App (e1, e2) ->
+    match eval_e e1 env, eval_e e2 env with
+    | Env.Closure (Fun (v, e), closure_env), repl_exp ->
+      let ext_env = ref repl_exp |> Env.extend closure_env v
+      in eval_e e ext_env
+    | Env.Closure (FunUnit (Unit, e), closure_env), Env.Val Unit ->
+      eval_e e closure_env
+    | _ -> raise (EvalError "invalid app") ;;
   
 (* Connecting the evaluators to the external world. The REPL in
    `miniml.ml` uses a call to the single function `evaluate` defined
@@ -328,4 +513,4 @@ let eval_e _ =
    above, not the `evaluate` function, so it doesn't matter how it's
    set when you submit your solution.) *)
    
-let evaluate = eval_d ;;
+let evaluate = eval_e ;;
