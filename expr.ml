@@ -90,9 +90,10 @@ let rec free_vars (exp : expr) : varidset =
   match exp with
   | Num _ | Float _ | Bool _ | String _ | Unit | Raise | Unassigned -> SS.empty
   | Var v -> SS.singleton v
-  | Lazy _ -> SS.empty
+  | Lazy e -> free_vars !e
   | Unop (_, e)
   | FunUnit (_, e) -> free_vars e
+  | Sequence (e1, e2)
   | Binop (_, e1, e2)
   | App (e1, e2) -> SS.union (free_vars e1) (free_vars e2)
   | Conditional (e1, e2, e3) ->
@@ -103,6 +104,7 @@ let rec free_vars (exp : expr) : varidset =
   | Letrec (v, e1, e2) ->
     free_vars e2 |> SS.remove v |> SS.union (free_vars e1 |> SS.remove v) ;;
 
+(* gensym -- Suffixes string with a unique number *)
 let gensym : string -> string =
   let count = ref 0 in
   fun s -> let res = s ^ string_of_int !count
@@ -128,12 +130,12 @@ let new_varname () : varid =
    substituted for free occurrences of `var_name`, avoiding variable
    capture *)
 let rec subst (var_name : varid) (repl : expr) (exp : expr) : expr =
-  if free_vars exp |> SS.mem var_name |> not then exp
-  else
+  if free_vars exp |> SS.mem var_name |> not then exp else
   match exp with
   | Num _ | Float _ | Bool _ | String _ | Unit | Raise | Unassigned -> exp
   | Var v -> if v = var_name then repl else Var v
-  | Lazy _ -> exp
+  | Lazy e -> Lazy (ref (subst var_name repl !e))
+  | Sequence (e1, e2) -> Sequence (subst var_name repl e1, subst var_name repl e2)
   | Unop (u, e) -> Unop (u, subst var_name repl e)
   | Binop (b, e1, e2) -> Binop (b, subst var_name repl e1, subst var_name repl e2)
   | Conditional (e1, e2, e3) ->
