@@ -222,7 +222,7 @@ let eval_l_test () =
 (* Additionally, test lazy expressions evaluated with eval_e *)
 let eval_e_test () =
   eval_sle_test eval_e;
-  (* force lazy 7 *)
+  (* force (lazy 7) *)
   let simple_lazy = Unop(Force, Lazy(ref (Num 7))) in
   unit_test (eval_e simple_lazy empty = Env.Val (Num 7))
             "eval_e simple lazy";
