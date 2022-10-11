@@ -14,7 +14,7 @@
     * Delaying Computation and Memoization
 
 ## 1. Introduction
-I implemented three extensions for this project: (1) floats, strings, and units, (2) lexically scoped environment semantics, and (3) lazy expressions. Each of the following sections will break down how I implemented a certain extension and provide examples demonstrating its behavior.
+I implemented three extensions for this project: 1) floats, strings, and units, 2) lexically scoped environment semantics, and 3) lazy expressions. Each of the following sections will break down how I implemented a certain extension and provide examples demonstrating its behavior.
 ## 2. Floats, Strings, and Units
 I began by implementing floats, strings, units, and their related operators. I added a token in `miniml_parse.mly` for each data type and operator. The appropriate grammar, keywords, and symbols were extended in `miniml_parse.mly` and `miniml_lex.mll` when necessary.
 
@@ -113,7 +113,7 @@ Fatal error: exception Stack overflow
     let f = fun () -> forever 0 in if true then 7 else f () ;;
 ==> 7
 ```
-In the first expression above, `forever 0` is evaluated immediately when it is bound to `f`, thus resulting in a stack overflow error. In the second expression, however, `f` is defined as a unit function that returns `forever 0 ` when applied. Because the body of `f` is not evaluated until the function itself is applied and because `f ()` is never called, there is ultimately no stack overflow error.
+In the first expression above, `forever 0` is evaluated immediately when it is bound to `f`, thus resulting in a stack overflow error. In the second expression, however, `f` is defined as a unit function that returns `forever 0` when applied. Because the body of `f` is not evaluated until the function itself is applied and because `f ()` is never called, there is ultimately no stack overflow error.
 
 Moreover, I define `;` as the sequencing operator, evaluating both its left and right expressions but only returning the value of the latter. A sequence is defined as a `Sequence of expr * expr` in the `Expr.expr` variant.
 ```
