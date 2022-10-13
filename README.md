@@ -1,4 +1,4 @@
-# CS 51: Final Project
+# MiniML
 ## Albert Qi
 ### May 4, 2022
 
